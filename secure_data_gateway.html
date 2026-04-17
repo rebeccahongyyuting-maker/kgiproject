@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L.I.F.E. Pulse — Secure Data Gateway</title>
+<style>
+  :root {
+    --bg: #0a0e1a; --bg2: #0f1528; --bg3: #141b30;
+    --panel: #1a2240; --panel2: #1e2a4a;
+    --border: #2a3a6a; --border2: #3a4a7a;
+    --green: #00e676; --green2: #00c853; --green-dim: #003d1a;
+    --red: #ff1744; --red2: #ff5252; --red-dim: #3d0010;
+    --yellow: #ffd740; --yellow-dim: #3d3000;
+    --blue: #448aff; --blue2: #82b1ff; --blue-dim: #001a4d;
+    --cyan: #18ffff; --cyan-dim: #003d3d;
+    --purple: #e040fb; --purple-dim: #2d0040;
+    --text: #e0e8ff; --text2: #8a9bc0; --text3: #5a6a90;
+    --font: 'Courier New', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font); font-size:13px; overflow-x:hidden; }
+
+  /* TOP BAR */
+  .topbar { background:var(--bg2); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; align-items:center; justify-content:space-between; }
+  .topbar-left { display:flex; align-items:center; gap:12px; }
+  .logo { color:var(--cyan); font-size:16px; font-weight:bold; letter-spacing:2px; }
+  .logo span { color:var(--green); }
+  .badge { background:var(--green-dim); color:var(--green); border:1px solid var(--green2); border-radius:3px; padding:2px 8px; font-size:10px; }
+  .badge.red { background:var(--red-dim); color:var(--red2); border-color:var(--red); }
+  .topbar-right { display:flex; align-items:center; gap:16px; font-size:11px; color:var(--text2); }
+  .clock { color:var(--cyan); font-size:12px; }
+  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* NAV TABS */
+  .nav { background:var(--bg2); border-bottom:1px solid var(--border); display:flex; padding:0 20px; gap:4px; }
+  .tab { padding:10px 16px; cursor:pointer; font-size:11px; color:var(--text2); border-bottom:2px solid transparent; transition:all .2s; letter-spacing:1px; }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--cyan); border-bottom-color:var(--cyan); }
+
+  /* LAYOUT */
+  .page { display:none; padding:16px; }
+  .page.active { display:block; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+
+  /* CARDS */
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:14px; }
+  .card-title { font-size:10px; color:var(--text2); letter-spacing:2px; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .card-title::before { content:''; width:3px; height:12px; border-radius:2px; }
+  .card-title.green::before { background:var(--green); }
+  .card-title.red::before { background:var(--red); }
+  .card-title.blue::before { background:var(--blue); }
+  .card-title.cyan::before { background:var(--cyan); }
+  .card-title.yellow::before { background:var(--yellow); }
+  .card-title.purple::before { background:var(--purple); }
+
+  /* METRIC CARDS */
+  .metric { text-align:center; }
+  .metric .val { font-size:28px; font-weight:bold; line-height:1; }
+  .metric .lbl { font-size:10px; color:var(--text2); margin-top:4px; letter-spacing:1px; }
+  .metric .sub { font-size:10px; margin-top:4px; }
+
+  /* TRAFFIC VISUALIZER */
+  .traffic-container { display:flex; align-items:stretch; gap:0; margin-top:8px; }
+  .traffic-panel { flex:1; border-radius:6px; padding:10px; font-size:11px; position:relative; }
+  .traffic-panel.dirty { background:var(--red-dim); border:1px solid var(--red); }
+  .traffic-panel.clean { background:var(--green-dim); border:1px solid var(--green); }
+  .traffic-panel .panel-label { font-size:9px; letter-spacing:2px; margin-bottom:8px; font-weight:bold; }
+  .traffic-panel.dirty .panel-label { color:var(--red2); }
+  .traffic-panel.clean .panel-label { color:var(--green); }
+  .gateway-center { width:140px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:8px; }
+  .gateway-box { background:var(--blue-dim); border:2px solid var(--blue); border-radius:8px; padding:10px 14px; text-align:center; position:relative; }
+  .gateway-box .gw-label { font-size:9px; color:var(--blue2); letter-spacing:2px; }
+  .gateway-box .gw-icon { font-size:22px; margin:4px 0; }
+  .gateway-status { font-size:9px; color:var(--green); }
+  .arrow-right { color:var(--text2); font-size:18px; }
+  .json-display { font-family:var(--font); font-size:10px; line-height:1.7; white-space:pre-wrap; word-break:break-all; max-height:160px; overflow-y:auto; }
+  .json-key { color:#82b1ff; }
+  .json-val { color:#a5d6a7; }
+  .json-val.pii { color:var(--red2); font-weight:bold; text-decoration:underline; }
+  .json-val.token { color:var(--cyan); }
+
+  /* STREAM LOG */
+  .stream-log { background:var(--bg); border:1px solid var(--border); border-radius:4px; height:200px; overflow-y:auto; padding:8px; font-size:10px; line-height:1.8; }
+  .log-entry { display:flex; gap:8px; align-items:baseline; border-bottom:1px solid var(--border); padding:2px 0; }
+  .log-ts { color:var(--text3); flex-shrink:0; }
+  .log-method { color:var(--blue2); flex-shrink:0; width:34px; }
+  .log-path { color:var(--text2); flex:1; }
+  .log-status { flex-shrink:0; width:36px; text-align:right; }
+  .log-pii { color:var(--red2); font-size:9px; }
+  .s200 { color:var(--green); } .s400 { color:var(--yellow); } .s500 { color:var(--red); }
+
+  /* THREAT ALERT */
+  .alert-box { border-radius:6px; padding:12px; margin-bottom:8px; display:flex; align-items:flex-start; gap:10px; animation:alertIn .3s ease; }
+  @keyframes alertIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:none} }
+  .alert-box.critical { background:var(--red-dim); border:1px solid var(--red); }
+  .alert-box.warning { background:var(--yellow-dim); border:1px solid var(--yellow); }
+  .alert-box.info { background:var(--blue-dim); border:1px solid var(--border2); }
+  .alert-icon { font-size:18px; flex-shrink:0; }
+  .alert-title { font-size:11px; font-weight:bold; margin-bottom:3px; }
+  .alert-box.critical .alert-title { color:var(--red2); }
+  .alert-box.warning .alert-title { color:var(--yellow); }
+  .alert-box.info .alert-title { color:var(--blue2); }
+  .alert-body { font-size:10px; color:var(--text2); line-height:1.5; }
+  .alert-time { font-size:9px; color:var(--text3); margin-top:3px; }
+  .flash { animation:flash 0.5s ease 3; }
+  @keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* SIMULATOR */
+  .sim-form { display:grid; gap:8px; }
+  .sim-row { display:grid; grid-template-columns:100px 1fr; align-items:center; gap:8px; }
+  .sim-row label { font-size:10px; color:var(--text2); text-align:right; }
+  .sim-row input, .sim-row select { background:var(--bg); border:1px solid var(--border2); color:var(--text); padding:6px 10px; border-radius:4px; font-family:var(--font); font-size:11px; outline:none; }
+  .sim-row input:focus, .sim-row select:focus { border-color:var(--cyan); }
+  .btn { padding:8px 18px; border:none; border-radius:4px; cursor:pointer; font-family:var(--font); font-size:11px; letter-spacing:1px; transition:all .2s; }
+  .btn-primary { background:var(--blue-dim); color:var(--blue2); border:1px solid var(--blue); }
+  .btn-primary:hover { background:var(--blue); color:#fff; }
+  .btn-danger { background:var(--red-dim); color:var(--red2); border:1px solid var(--red); }
+  .btn-danger:hover { background:var(--red); color:#fff; }
+  .btn-green { background:var(--green-dim); color:var(--green); border:1px solid var(--green2); }
+  .btn-green:hover { background:var(--green2); color:#000; }
+  .btn-sm { padding:4px 10px; font-size:10px; }
+  .btn-row { display:flex; gap:8px; margin-top:4px; flex-wrap:wrap; }
+
+  /* RESULT PANEL */
+  .result-panel { background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:10px; font-size:10px; line-height:1.8; margin-top:8px; min-height:60px; }
+
+  /* DB TABLE */
+  .db-table { width:100%; border-collapse:collapse; font-size:10px; }
+  .db-table th { background:var(--panel2); color:var(--text2); padding:6px 10px; text-align:left; font-weight:normal; letter-spacing:1px; border-bottom:1px solid var(--border2); font-size:9px; }
+  .db-table td { padding:5px 10px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top; }
+  .db-table tr:hover td { background:var(--panel2); }
+  .db-table .pk { color:var(--yellow); font-size:9px; }
+  .db-table .enc { color:var(--purple); font-size:9px; }
+  .db-table .token { color:var(--cyan); font-family:var(--font); }
+  .db-table .bool-t { color:var(--green); } .db-table .bool-f { color:var(--text3); }
+  .db-table-wrap { overflow-x:auto; }
+  .db-tag { display:inline-block; background:var(--bg); border:1px solid var(--border2); border-radius:3px; padding:1px 6px; font-size:9px; color:var(--text2); margin:1px; }
+
+  /* PROGRESS BAR */
+  .progress-bar { background:var(--bg); border-radius:3px; height:6px; overflow:hidden; margin-top:4px; }
+  .progress-fill { height:100%; border-radius:3px; transition:width .5s ease; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width:4px; height:4px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+  /* SCHEMA DIAGRAM */
+  .schema-diagram { display:flex; align-items:center; justify-content:center; gap:0; padding:10px 0; }
+  .schema-box { background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:10px 14px; min-width:140px; }
+  .schema-box .db-name { font-size:10px; letter-spacing:1px; margin-bottom:6px; font-weight:bold; }
+  .schema-box .db-field { font-size:9px; color:var(--text2); padding:2px 0; border-bottom:1px solid var(--border); }
+  .schema-box .db-field:last-child { border:none; }
+  .schema-box .db-field .fk { color:var(--yellow); }
+  .schema-arrow { display:flex; flex-direction:column; align-items:center; padding:0 8px; color:var(--text3); font-size:20px; }
+  .schema-arrow .arrow-label { font-size:8px; color:var(--text3); letter-spacing:1px; }
+  .schema-box.vault { border-color:var(--purple); }
+  .schema-box.vault .db-name { color:var(--purple); }
+  .schema-box.telemetry { border-color:var(--green); }
+  .schema-box.telemetry .db-name { color:var(--green); }
+  .schema-box.audit { border-color:var(--yellow); }
+  .schema-box.audit .db-name { color:var(--yellow); }
+  .schema-box.gateway { border-color:var(--blue); }
+  .schema-box.gateway .db-name { color:var(--blue); }
+
+  .gap8 { gap:8px; }
+  .mt8 { margin-top:8px; }
+  .mt4 { margin-top:4px; }
+  .full { grid-column:1/-1; }
+  .text-green { color:var(--green); }
+  .text-red { color:var(--red2); }
+  .text-cyan { color:var(--cyan); }
+  .text-yellow { color:var(--yellow); }
+  .text-blue2 { color:var(--blue2); }
+  .text-purple { color:var(--purple); }
+  .text-dim { color:var(--text2); }
+  .section-title { font-size:10px; color:var(--text2); letter-spacing:2px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">L.I.F.E.<span>PULSE</span></div>
+    <div style="color:var(--text3);font-size:11px;">►</div>
+    <div style="color:var(--text2);font-size:11px;letter-spacing:1px;">SECURE DATA GATEWAY</div>
+    <div class="badge">PDPA COMPLIANT</div>
+    <div class="badge red" id="threatBadge" style="display:none;">⚠ PII THREAT DETECTED</div>
+  </div>
+  <div class="topbar-right">
+    <span><span class="status-dot"></span> GATEWAY ONLINE</span>
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="tab active" onclick="showTab('dashboard')">📊 DASHBOARD</div>
+  <div class="tab" onclick="showTab('traffic')">🔀 LIVE TRAFFIC</div>
+  <div class="tab" onclick="showTab('simulator')">⚡ SIMULATOR</div>
+  <div class="tab" onclick="showTab('databases')">🗄 DATABASES</div>
+  <div class="tab" onclick="showTab('schema')">🔗 SCHEMA</div>
+</div>
+
+<!-- ═══════════════ PAGE: DASHBOARD ═══════════════ -->
+<div class="page active" id="page-dashboard">
+  <div class="grid4" style="margin-bottom:12px;">
+    <div class="card metric">
+      <div class="card-title green">REQUESTS</div>
+      <div class="val text-green" id="m-total">0</div>
+      <div class="lbl">TOTAL INTERCEPTED</div>
+      <div class="progress-bar mt4"><div class="progress-fill" style="background:var(--green);width:100%"></div></div>
+    </div>
+    <div class="card metric">
+      <div class="card-title cyan">TOKENIZED</div>
+      <div class="val text-cyan" id="m-clean">0</div>
+      <div class="lbl">CLEAN PAYLOADS</div>
+      <div class="progress-bar mt4"><div class="progress-fill" id="cleanBar" style="background:var(--cyan);width:0%"></div></div>
+    </div>
+    <div class="card metric">
+      <div class="card-title red">THREATS</div>
+      <div class="val text-red" id="m-threats">0</div>
+      <div class="lbl">PII DETECTED & BLOCKED</div>
+      <div class="progress-bar mt4"><div class="progress-fill" id="threatBar" style="background:var(--red);width:0%"></div></div>
+    </div>
+    <div class="card metric">
+      <div class="card-title yellow">AVG LATENCY</div>
+      <div class="val text-yellow" id="m-latency">0<span style="font-size:14px">ms</span></div>
+      <div class="lbl">PROCESSING TIME</div>
+      <div class="progress-bar mt4"><div class="progress-fill" style="background:var(--yellow);width:60%"></div></div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:12px;">
+    <div class="card">
+      <div class="card-title red">🚨 THREAT ALERTS</div>
+      <div id="alertContainer" style="max-height:200px;overflow-y:auto;">
+        <div style="color:var(--text3);font-size:11px;text-align:center;padding:20px;">No threats detected</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title blue">📡 RECENT API TRAFFIC</div>
+      <div class="stream-log" id="streamLog">
+        <div style="color:var(--text3);">Waiting for traffic...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="card">
+      <div class="card-title green">PII PATTERN DETECTION</div>
+      <div style="display:grid;gap:6px;margin-top:4px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;">
+          <span class="text-dim">🪪 Taiwan National ID (A123456789)</span>
+          <span class="text-red" id="cnt-nid">0 blocked</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;">
+          <span class="text-dim">📧 Email Address</span>
+          <span class="text-red" id="cnt-email">0 blocked</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;">
+          <span class="text-dim">📱 Phone Number (09xx)</span>
+          <span class="text-red" id="cnt-phone">0 blocked</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;">
+          <span class="text-dim">👤 Agent Name / ID</span>
+          <span class="text-cyan" id="cnt-name">0 tokenized</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title cyan">DATABASE SEPARATION STATUS</div>
+      <div style="display:grid;gap:6px;margin-top:4px;font-size:10px;">
+        <div style="display:flex;justify-content:space-between;">
+          <span>🔐 IdentityVault</span><span class="text-purple">ISOLATED ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span>📊 TelemetryDB</span><span class="text-green">ANONYMOUS ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span>📋 ApiTrafficLogs</span><span class="text-yellow">AUDIT ONLY ✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span>🔑 Key Separation</span><span class="text-green">ENFORCED ✓</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title yellow">GATEWAY HEALTH</div>
+      <div style="display:grid;gap:6px;margin-top:4px;font-size:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Interceptor</span>
+          <span class="text-green">● ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span>PII Scanner</span>
+          <span class="text-green">● ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span>UUID Generator</span>
+          <span class="text-green">● ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Payload Router</span>
+          <span class="text-green">● ACTIVE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: LIVE TRAFFIC ═══════════════ -->
+<div class="page" id="page-traffic">
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-title cyan">REAL-TIME PAYLOAD TRANSFORMATION</div>
+    <div class="traffic-container">
+      <div class="traffic-panel dirty">
+        <div class="panel-label">⬇ INCOMING — DIRTY PAYLOAD (PII EXPOSED)</div>
+        <div class="json-display" id="dirtyJson">
+          <span class="text-dim">Waiting for request...</span>
+        </div>
+      </div>
+      <div class="gateway-center">
+        <div class="arrow-right">→</div>
+        <div class="gateway-box">
+          <div class="gw-label">GATEWAY</div>
+          <div class="gw-icon">🛡</div>
+          <div class="gateway-status" id="gwStatus">READY</div>
+        </div>
+        <div class="arrow-right">→</div>
+        <div id="gwProcess" style="font-size:9px;color:var(--text3);text-align:center;min-height:14px;"></div>
+      </div>
+      <div class="traffic-panel clean">
+        <div class="panel-label">⬆ OUTGOING — CLEAN PAYLOAD (TOKENIZED)</div>
+        <div class="json-display" id="cleanJson">
+          <span class="text-dim">Waiting for output...</span>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn btn-primary" onclick="simulateTraffic()">▶ SIMULATE REQUEST</button>
+      <button class="btn btn-danger" onclick="simulatePIIAttack()">☠ SIMULATE PII LEAK</button>
+      <button class="btn btn-green" onclick="autoSimulate()">🔄 AUTO SIMULATE (5s)</button>
+      <button class="btn btn-sm" onclick="stopAuto()" style="background:var(--bg);border:1px solid var(--border2);color:var(--text2);">■ STOP</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title blue">📡 API TRAFFIC LOG</div>
+    <div class="stream-log" id="trafficLog" style="height:240px;">
+      <div style="color:var(--text3);">Waiting for traffic...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: SIMULATOR ═══════════════ -->
+<div class="page" id="page-simulator">
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title cyan">SUBMIT QUIZ RESULT — POST /api/v1/submit_sprint</div>
+      <div class="sim-form">
+        <div class="sim-row"><label>Agent ID</label><input id="s-aid" value="EMP-0042" placeholder="e.g. EMP-0042"></div>
+        <div class="sim-row"><label>Agent Name</label><input id="s-name" value="林小明" placeholder="Agent name"></div>
+        <div class="sim-row"><label>Module</label><select id="s-module">
+          <option>compliance_quiz_01</option><option>investment_linked_regulation</option>
+          <option>term_life_basics</option><option>cross_sell_framework</option>
+        </select></div>
+        <div class="sim-row"><label>Score (%)</label><input id="s-score" value="78" type="number" min="0" max="100"></div>
+        <div class="sim-row"><label>Duration(s)</label><input id="s-dur" value="420" type="number"></div>
+        <div class="sim-row"><label>Attempts</label><input id="s-att" value="1" type="number" min="1"></div>
+        <div class="sim-row"><label>Extra Field</label><input id="s-extra" value="" placeholder="Try: 0912345678 or A123456789"></div>
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn btn-primary" onclick="submitReq()">📤 SUBMIT REQUEST</button>
+        <button class="btn btn-danger" onclick="injectPII()">☠ INJECT PII TEST</button>
+        <button class="btn btn-sm btn-green" onclick="clearResult()">✕ CLEAR</button>
+      </div>
+      <div class="result-panel" id="simResult"><span class="text-dim">Submit a request to see the gateway response...</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title green">TOKENIZATION RESULT</div>
+      <div style="font-size:10px;line-height:2;color:var(--text2);">
+        <b class="text-cyan">STEP 1:</b> Intercept incoming POST payload<br>
+        <b class="text-yellow">STEP 2:</b> Scan for PII patterns (NID / email / phone)<br>
+        <b class="text-red">STEP 3:</b> If PII found → BLOCK + log threat alert<br>
+        <b class="text-blue2">STEP 4:</b> Strip agent_id, agent_name from payload<br>
+        <b class="text-purple">STEP 5:</b> Generate UUID token_id<br>
+        <b class="text-green">STEP 6:</b> Save mapping → IdentityVault (encrypted)<br>
+        <b class="text-green">STEP 7:</b> Route clean payload → TelemetryDB (anonymous)<br>
+        <b class="text-dim">STEP 8:</b> Log API call → ApiTrafficLogs<br>
+      </div>
+      <hr style="border-color:var(--border);margin:10px 0;">
+      <div class="card-title purple">LAST GENERATED TOKEN</div>
+      <div id="lastToken" style="font-size:10px;word-break:break-all;color:var(--cyan);padding:6px;background:var(--bg);border-radius:4px;min-height:30px;">—</div>
+      <div id="lastMapping" style="font-size:9px;color:var(--text2);margin-top:6px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: DATABASES ═══════════════ -->
+<div class="page" id="page-databases">
+  <div style="margin-bottom:12px;">
+    <div class="card">
+      <div class="card-title purple">🔐 IDENTITY VAULT — RESTRICTED ACCESS (Encrypted at Rest)</div>
+      <div class="db-table-wrap">
+        <table class="db-table">
+          <thead><tr>
+            <th>token_id (PK)</th><th>real_agent_id (🔒 ENCRYPTED)</th><th>enc_key_ver</th><th>creation_timestamp</th>
+          </tr></thead>
+          <tbody id="tb-vault"><tr><td colspan="4" style="color:var(--text3);text-align:center;">No records</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:12px;">
+    <div class="card">
+      <div class="card-title green">📊 TELEMETRY LOGS — ANONYMOUS (token_id only, no PII)</div>
+      <div class="db-table-wrap">
+        <table class="db-table">
+          <thead><tr>
+            <th>log_id</th><th>token_id (FK →Vault)</th><th>module_id</th><th>score</th><th>duration_s</th><th>attempts</th><th>timestamp</th>
+          </tr></thead>
+          <tbody id="tb-telemetry"><tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-title yellow">📋 API TRAFFIC LOGS — AUDIT DATABASE</div>
+      <div class="db-table-wrap">
+        <table class="db-table">
+          <thead><tr>
+            <th>log_id</th><th>endpoint</th><th>payload_bytes</th><th>pii_detected</th><th>pii_type</th><th>processing_ms</th><th>timestamp</th>
+          </tr></thead>
+          <tbody id="tb-audit"><tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: SCHEMA ═══════════════ -->
+<div class="page" id="page-schema">
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-title cyan">SYSTEM ARCHITECTURE — DATA FLOW & DATABASE SEPARATION</div>
+    <div class="schema-diagram" style="flex-wrap:wrap;gap:8px;">
+      <div class="schema-box gateway">
+        <div class="db-name">📱 TABLET APP</div>
+        <div class="db-field">POST /api/v1/submit_sprint</div>
+        <div class="db-field" style="color:var(--red2);">{ agent_id, agent_name, score... }</div>
+        <div class="db-field" style="color:var(--text3);">⚠ Contains PII</div>
+      </div>
+      <div class="schema-arrow"><span>→</span><span class="arrow-label">DIRTY</span></div>
+      <div class="schema-box gateway">
+        <div class="db-name">🛡 SECURE GATEWAY</div>
+        <div class="db-field">① Intercept POST</div>
+        <div class="db-field">② PII Scanner</div>
+        <div class="db-field">③ Tokenizer (UUID)</div>
+        <div class="db-field">④ Route Payload</div>
+      </div>
+      <div class="schema-arrow"><span>↗<br>↘</span><span class="arrow-label">SPLIT</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="schema-box vault">
+          <div class="db-name">🔐 IDENTITY VAULT</div>
+          <div class="db-field"><span class="fk">PK</span> token_id (UUID)</div>
+          <div class="db-field">real_agent_id 🔒 ENC</div>
+          <div class="db-field">enc_key_version</div>
+          <div class="db-field">creation_timestamp</div>
+          <div class="db-field" style="color:var(--purple);font-size:8px;">RESTRICTED · ENCRYPTED · ISOLATED</div>
+        </div>
+        <div class="schema-box telemetry">
+          <div class="db-name">📊 TELEMETRY LOGS</div>
+          <div class="db-field"><span class="fk">FK</span> token_id → Vault</div>
+          <div class="db-field">module_id, score</div>
+          <div class="db-field">duration_s, attempts</div>
+          <div class="db-field">timestamp</div>
+          <div class="db-field" style="color:var(--green);font-size:8px;">NO PII · ANALYTICS SAFE</div>
+        </div>
+      </div>
+      <div class="schema-arrow"><span>↓</span><span class="arrow-label">ALL</span></div>
+      <div class="schema-box audit">
+        <div class="db-name">📋 API TRAFFIC LOGS</div>
+        <div class="db-field"><span class="fk">PK</span> log_id</div>
+        <div class="db-field">endpoint_accessed</div>
+        <div class="db-field">payload_size_bytes</div>
+        <div class="db-field">pii_detected_flag</div>
+        <div class="db-field">processing_time_ms</div>
+        <div class="db-field" style="color:var(--yellow);font-size:8px;">AUDIT ONLY · NO PII VALUES</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title red">🚫 PDPA COMPLIANCE RULES</div>
+      <div style="font-size:10px;line-height:2;color:var(--text2);">
+        ● <b class="text-green">Principle of Least Privilege</b> — Analysts access TelemetryDB only<br>
+        ● <b class="text-green">Data Minimization</b> — Only token_id flows to analytics<br>
+        ● <b class="text-green">Physical/Logical Separation</b> — IdentityVault is isolated<br>
+        ● <b class="text-green">Encryption at Rest</b> — real_agent_id encrypted in Vault<br>
+        ● <b class="text-green">Key Rotation</b> — enc_key_version tracked<br>
+        ● <b class="text-green">Audit Trail</b> — All gateway traffic logged<br>
+        ● <b class="text-green">PII Detection</b> — Auto-block NID / email / phone<br>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title blue">🔑 PII DETECTION PATTERNS</div>
+      <div style="font-size:10px;line-height:2;">
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:3px 0;">
+          <span class="text-dim">Taiwan National ID</span>
+          <span class="text-cyan font-mono">[A-Z][12]\d{8}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:3px 0;">
+          <span class="text-dim">Email Address</span>
+          <span class="text-cyan">[^\s]+@[^\s]+\.[^\s]+</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:3px 0;">
+          <span class="text-dim">TW Phone (Mobile)</span>
+          <span class="text-cyan">09\d{8}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;">
+          <span class="text-dim">TW Phone (Landline)</span>
+          <span class="text-cyan">0[2-8]\d{7,8}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════ STATE ══════════════
+const state = {
+  total:0, clean:0, threats:0, latencies:[],
+  nid:0, email:0, phone:0, nameCount:0,
+  vault:[], telemetry:[], audit:[], alerts:[],
+  autoTimer:null, logCounter:0
+};
+
+// PII patterns
+const PII_PATTERNS = {
+  nid:   { re:/[A-Z][12]\d{8}/g,              label:'Taiwan National ID', type:'nid' },
+  email: { re:/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, label:'Email Address', type:'email' },
+  phone: { re:/09\d{8}|0[2-8]\d{7,8}/g,       label:'Phone Number',      type:'phone' },
+};
+
+// UUID generator
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0; return(c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
+
+// Encrypt simulation
+function fakeEncrypt(s) {
+  return '🔒 ' + btoa(s).substring(0,12) + '...';
+}
+
+function ts() {
+  return new Date().toISOString().replace('T',' ').substring(0,19);
+}
+
+// ══════════════ PII SCANNER ══════════════
+function scanPII(payload) {
+  const str = JSON.stringify(payload);
+  const found = [];
+  for(const [k, v] of Object.entries(PII_PATTERNS)){
+    const m = str.match(v.re);
+    if(m) found.push({type:k, label:v.label, values:m});
+  }
+  return found;
+}
+
+// ══════════════ GATEWAY LOGIC ══════════════
+function processRequest(payload, endpoint='/api/v1/submit_sprint') {
+  const t0 = performance.now();
+  const piiFound = scanPII(payload);
+  const hasPII = piiFound.length > 0;
+  const latency = Math.round((performance.now()-t0) + 8 + Math.random()*30);
+  const lid = 'LOG-' + String(++state.logCounter).padStart(4,'0');
+
+  state.total++;
+  state.latencies.push(latency);
+
+  // Audit log always
+  state.audit.push({
+    log_id: lid,
+    endpoint,
+    payload_bytes: JSON.stringify(payload).length,
+    pii_detected: hasPII,
+    pii_type: hasPII ? piiFound.map(p=>p.label).join(', ') : '—',
+    processing_ms: latency,
+    timestamp: ts()
+  });
+
+  if(hasPII) {
+    state.threats++;
+    piiFound.forEach(p=>{
+      state[p.type] = (state[p.type]||0)+1;
+      addAlert('critical','☠ PII LEAK BLOCKED',
+        `Detected: ${p.label} in payload to ${endpoint}. Payload quarantined. Incident logged.`, p.values.join(', '));
+    });
+    updateMetrics();
+    renderDatabases();
+    return { blocked:true, reason:'PII_DETECTED', pii:piiFound, latency };
+  }
+
+  // Strip identity, tokenize
+  const tokenId = uuid();
+  const encAgentId = fakeEncrypt(payload.agent_id || payload.agent_name || 'UNKNOWN');
+
+  state.vault.push({
+    token_id: tokenId,
+    real_agent_id: encAgentId,
+    enc_key_version: 'v2025.1',
+    creation_timestamp: ts()
+  });
+
+  const cleanPayload = {};
+  for(const [k,v] of Object.entries(payload)){
+    if(!['agent_id','agent_name'].includes(k)) cleanPayload[k]=v;
+  }
+  cleanPayload.token_id = tokenId;
+
+  const telLog = {
+    log_id: 'TEL-' + String(state.telemetry.length+1).padStart(4,'0'),
+    token_id: tokenId.substring(0,18)+'...',
+    module_id: payload.module_id || 'unknown',
+    score: payload.score ?? '—',
+    duration_s: payload.duration_s ?? '—',
+    attempts: payload.attempts ?? '—',
+    timestamp: ts()
+  };
+  state.telemetry.push(telLog);
+  state.clean++;
+  state.nameCount++;
+
+  updateMetrics();
+  renderDatabases();
+
+  return { blocked:false, tokenId, cleanPayload, dirtyPayload:payload, latency };
+}
+
+// ══════════════ UI HELPERS ══════════════
+function updateMetrics() {
+  document.getElementById('m-total').textContent = state.total;
+  document.getElementById('m-clean').textContent = state.clean;
+  document.getElementById('m-threats').textContent = state.threats;
+  const avg = state.latencies.length ? Math.round(state.latencies.reduce((a,b)=>a+b)/state.latencies.length) : 0;
+  document.getElementById('m-latency').innerHTML = avg+'<span style="font-size:14px">ms</span>';
+  const cleanPct = state.total ? (state.clean/state.total*100).toFixed(0) : 0;
+  const threatPct = state.total ? (state.threats/state.total*100).toFixed(0) : 0;
+  document.getElementById('cleanBar').style.width = cleanPct+'%';
+  document.getElementById('threatBar').style.width = Math.min(threatPct,100)+'%';
+  document.getElementById('cnt-nid').textContent = (state.nid||0)+' blocked';
+  document.getElementById('cnt-email').textContent = (state.email||0)+' blocked';
+  document.getElementById('cnt-phone').textContent = (state.phone||0)+' blocked';
+  document.getElementById('cnt-name').textContent = state.nameCount+' tokenized';
+  if(state.threats>0) document.getElementById('threatBadge').style.display='';
+  else document.getElementById('threatBadge').style.display='none';
+}
+
+function addAlert(level, title, body, detail='') {
+  const icons = {critical:'🚨',warning:'⚠️',info:'ℹ️'};
+  const a = {level, title, body, detail, time:ts()};
+  state.alerts.unshift(a);
+  const c = document.getElementById('alertContainer');
+  const first = c.querySelector('.no-alerts');
+  if(first) first.remove();
+  const div = document.createElement('div');
+  div.className = `alert-box ${level}`;
+  div.innerHTML = `<div class="alert-icon">${icons[level]}</div>
+    <div><div class="alert-title">${title}</div>
+    <div class="alert-body">${body}${detail?'<br><span style="color:var(--red2);">Value: '+detail+'</span>':''}</div>
+    <div class="alert-time">${a.time}</div></div>`;
+  c.insertBefore(div, c.firstChild);
+  div.classList.add('flash');
+}
+
+function addStreamLog(method, path, status, pii=false) {
+  const logs = [document.getElementById('streamLog'), document.getElementById('trafficLog')];
+  logs.forEach(log=>{
+    if(!log) return;
+    const first = log.querySelector('[style*="Waiting"]');
+    if(first) first.remove();
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    const sc = status>=200&&status<300?'s200':status>=400?'s400':'s500';
+    entry.innerHTML = `<span class="log-ts">${new Date().toTimeString().substring(0,8)}</span>
+      <span class="log-method">${method}</span>
+      <span class="log-path">${path}</span>
+      <span class="log-status ${sc}">${status}</span>
+      ${pii?'<span class="log-pii">⚠PII</span>':''}`;
+    log.insertBefore(entry, log.firstChild);
+    while(log.children.length>80) log.removeChild(log.lastChild);
+  });
+}
+
+function renderJSON(obj, dirty=false) {
+  const lines = JSON.stringify(obj, null, 2).split('\n');
+  return lines.map(line=>{
+    // highlight keys
+    let l = line.replace(/"([^"]+)":/g,'<span class="json-key">"$1"</span>:');
+    // highlight pii values
+    if(dirty){
+      l = l.replace(/("([A-Z][12]\d{8})|(\b09\d{8}\b)|([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}))"/, 
+        '<span class="json-val pii">⚠ $&</span>');
+      l = l.replace(/": "(EMP-\d+|林|張|王|陳)/g, '": <span class="json-val pii">⚠ "$1</span>');
+    }
+    // highlight tokens
+    if(!dirty && line.includes('token_id')) {
+      l = l.replace(/": "([0-9a-f\-]{36})"/, '": <span class="json-val token">"$1"</span>');
+    }
+    return l;
+  }).join('\n');
+}
+
+function renderDatabases() {
+  // Vault
+  const vb = document.getElementById('tb-vault');
+  vb.innerHTML = state.vault.length ? state.vault.slice(-10).reverse().map(r=>`<tr>
+    <td class="token" style="font-size:9px;">${r.token_id}</td>
+    <td class="enc">${r.real_agent_id}</td>
+    <td><span class="db-tag">${r.enc_key_version}</span></td>
+    <td style="color:var(--text2);">${r.creation_timestamp}</td>
+  </tr>`).join('') : '<tr><td colspan="4" style="color:var(--text3);text-align:center;">No records</td></tr>';
+
+  // Telemetry
+  const tb = document.getElementById('tb-telemetry');
+  tb.innerHTML = state.telemetry.length ? state.telemetry.slice(-10).reverse().map(r=>`<tr>
+    <td style="color:var(--text2);">${r.log_id}</td>
+    <td class="token" style="font-size:9px;">${r.token_id}</td>
+    <td><span class="db-tag">${r.module_id}</span></td>
+    <td style="color:var(--green);">${r.score}</td>
+    <td>${r.duration_s}s</td>
+    <td>${r.attempts}</td>
+    <td style="color:var(--text2);">${r.timestamp}</td>
+  </tr>`).join('') : '<tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr>';
+
+  // Audit
+  const ab = document.getElementById('tb-audit');
+  ab.innerHTML = state.audit.length ? state.audit.slice(-10).reverse().map(r=>`<tr>
+    <td style="color:var(--text2);">${r.log_id}</td>
+    <td style="color:var(--blue2);">${r.endpoint}</td>
+    <td>${r.payload_bytes}B</td>
+    <td class="${r.pii_detected?'bool-t text-red':'bool-f'}">${r.pii_detected?'TRUE ⚠':'false'}</td>
+    <td style="color:var(--red2);font-size:9px;">${r.pii_type}</td>
+    <td style="color:var(--yellow);">${r.processing_ms}ms</td>
+    <td style="color:var(--text2);">${r.timestamp}</td>
+  </tr>`).join('') : '<tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr>';
+}
+
+// ══════════════ ACTIONS ══════════════
+const SAMPLE_AGENTS = [
+  {id:'EMP-0042',name:'林小明'},{id:'EMP-0187',name:'張美華'},
+  {id:'EMP-0093',name:'王大偉'},{id:'EMP-0251',name:'陳雅婷'},
+  {id:'EMP-0314',name:'李志遠'},{id:'EMP-0076',name:'黃淑芬'},
+];
+const MODULES = ['compliance_quiz_01','investment_linked_regulation','term_life_basics','cross_sell_framework','data_sharing_rules'];
+
+function simulateTraffic() {
+  const ag = SAMPLE_AGENTS[Math.floor(Math.random()*SAMPLE_AGENTS.length)];
+  const mod = MODULES[Math.floor(Math.random()*MODULES.length)];
+  const payload = {
+    agent_id: ag.id, agent_name: ag.name,
+    module_id: mod, score: Math.floor(60+Math.random()*40),
+    duration_s: Math.floor(200+Math.random()*300),
+    attempts: Math.ceil(Math.random()*3),
+    submitted_at: ts()
+  };
+  animateGateway(payload, false);
+}
+
+function simulatePIIAttack() {
+  const types = [
+    {extra_field: 'A234567890', notes:'nid_bypass'},
+    {contact: 'agent@fhc.com.tw'},
+    {phone: '0912345678'},
+    {personal_data: 'call me at 0223456789'},
+  ];
+  const ag = SAMPLE_AGENTS[0];
+  const payload = {
+    agent_id: ag.id, agent_name: ag.name,
+    module_id:'compliance_quiz_01', score:88,
+    duration_s:380, attempts:1,
+    ...types[Math.floor(Math.random()*types.length)]
+  };
+  animateGateway(payload, true);
+}
+
+function animateGateway(payload, isPII) {
+  const gwStatus = document.getElementById('gwStatus');
+  const gwProcess = document.getElementById('gwProcess');
+  const dirtyEl = document.getElementById('dirtyJson');
+  const cleanEl = document.getElementById('cleanJson');
+
+  // Show dirty
+  dirtyEl.innerHTML = renderJSON(payload, true);
+  cleanEl.innerHTML = '<span class="text-dim">Processing...</span>';
+  gwStatus.textContent = 'SCANNING...';
+  gwStatus.style.color = 'var(--yellow)';
+  gwProcess.textContent = '⚡ Intercepted';
+
+  setTimeout(()=>{
+    gwStatus.textContent = isPII ? 'BLOCKING!' : 'TOKENIZING';
+    gwStatus.style.color = isPII ? 'var(--red)' : 'var(--cyan)';
+    gwProcess.textContent = isPII ? '🚫 PII Detected' : '🔑 Generating UUID';
+  }, 400);
+
+  setTimeout(()=>{
+    const res = processRequest(payload);
+    if(res.blocked){
+      cleanEl.innerHTML = `<span class="text-red">🚫 PAYLOAD BLOCKED\n\nReason: PII_DETECTED\nTypes: ${res.pii.map(p=>p.label).join(', ')}\n\nPayload quarantined.\nIncident logged to ApiTrafficLogs.</span>`;
+      gwStatus.textContent = 'BLOCKED';
+      gwStatus.style.color = 'var(--red)';
+      gwProcess.textContent = '🚨 Threat logged';
+      addStreamLog('POST','/api/v1/submit_sprint',403,true);
+    } else {
+      cleanEl.innerHTML = renderJSON(res.cleanPayload, false);
+      gwStatus.textContent = 'CLEAN ✓';
+      gwStatus.style.color = 'var(--green)';
+      gwProcess.textContent = '✅ Routed to DB';
+      document.getElementById('lastToken').textContent = res.tokenId;
+      document.getElementById('lastMapping').innerHTML =
+        `<span class="text-dim">${payload.agent_id} (${payload.agent_name}) → </span><span style="color:var(--cyan);">${res.tokenId}</span>`;
+      addStreamLog('POST','/api/v1/submit_sprint',200,false);
+    }
+    setTimeout(()=>{ gwStatus.textContent='READY'; gwStatus.style.color='var(--green)'; gwProcess.textContent=''; },2000);
+  }, 900);
+}
+
+function submitReq() {
+  const payload = {
+    agent_id: document.getElementById('s-aid').value,
+    agent_name: document.getElementById('s-name').value,
+    module_id: document.getElementById('s-module').value,
+    score: parseInt(document.getElementById('s-score').value),
+    duration_s: parseInt(document.getElementById('s-dur').value),
+    attempts: parseInt(document.getElementById('s-att').value),
+  };
+  const extra = document.getElementById('s-extra').value;
+  if(extra) payload.extra_field = extra;
+
+  const res = processRequest(payload);
+  const el = document.getElementById('simResult');
+
+  if(res.blocked){
+    el.innerHTML = `<span class="text-red">🚫 REQUEST BLOCKED — HTTP 403\n\nReason: PII_DETECTED\nPII Types: ${res.pii.map(p=>p.label).join(', ')}\nProcessing Time: ${res.latency}ms\n\nPayload has been quarantined.\nSecurity alert raised.\nIncident recorded in ApiTrafficLogs.</span>`;
+    addStreamLog('POST','/api/v1/submit_sprint',403,true);
+  } else {
+    el.innerHTML = `<span class="text-green">✅ REQUEST PROCESSED — HTTP 200\n\n</span><span class="text-cyan">Generated Token:\n${res.tokenId}\n\n</span><span class="text-dim">Clean Payload → TelemetryDB:\n</span>${JSON.stringify(res.cleanPayload,null,2)}\n\n<span class="text-dim">Processing Time: ${res.latency}ms</span>`;
+    document.getElementById('lastToken').textContent = res.tokenId;
+    document.getElementById('lastMapping').innerHTML = `<span class="text-dim">${payload.agent_id} → </span><span style="color:var(--cyan);">${res.tokenId}</span>`;
+    addStreamLog('POST','/api/v1/submit_sprint',200,false);
+  }
+}
+
+function injectPII() {
+  document.getElementById('s-extra').value = 'A' + String(Math.floor(100000000+Math.random()*900000000));
+  submitReq();
+}
+
+function clearResult() {
+  document.getElementById('simResult').innerHTML = '<span class="text-dim">Submit a request to see the gateway response...</span>';
+}
+
+let autoTimer = null;
+function autoSimulate() {
+  if(autoTimer) clearInterval(autoTimer);
+  autoTimer = setInterval(()=>{
+    if(Math.random()<0.25) simulatePIIAttack();
+    else simulateTraffic();
+  },1800);
+  simulateTraffic();
+}
+function stopAuto() { if(autoTimer){clearInterval(autoTimer);autoTimer=null;} }
+
+// ══════════════ TABS ══════════════
+function showTab(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ══════════════ CLOCK ══════════════
+function updateClock(){
+  document.getElementById('clock').textContent = new Date().toTimeString().substring(0,8);
+}
+setInterval(updateClock,1000); updateClock();
+
+// ══════════════ INIT ══════════════
+// Seed some initial data
+[
+  {id:'EMP-0042',name:'林小明',mod:'compliance_quiz_01',score:92,dur:380,att:1},
+  {id:'EMP-0187',name:'張美華',mod:'term_life_basics',score:78,dur:420,att:2},
+  {id:'EMP-0093',name:'王大偉',mod:'investment_linked_regulation',score:65,dur:510,att:3},
+].forEach(d=>{
+  processRequest({agent_id:d.id,agent_name:d.name,module_id:d.mod,score:d.score,duration_s:d.dur,attempts:d.att});
+});
+</script>
+</body>
+</html>
