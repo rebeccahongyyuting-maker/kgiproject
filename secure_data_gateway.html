@@ -5,850 +5,808 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>L.I.F.E. Pulse — Secure Data Gateway</title>
 <style>
-  /* ══════════════ 系統設計規範 (Design Tokens) ══════════════ 
-     採用 Cyberpunk / Dark Mode 風格，呼叫資安監控儀表板的專業感。
-  */
+
+  /* ══════════════ CSS 自訂屬性（設計系統色票與字型） ══════════════ */
   :root {
-    /* 背景與面板層次 */
-    --bg: #0a0e1a; --bg2: #0f1528; --bg3: #141b30;
-    --panel: #1a2240; --panel2: #1e2a4a;
-    --border: #2a3a6a; --border2: #3a4a7a;
-    
-    /* 功能性顏色標籤：
-       綠色：代表安全、已脫敏、符合合規 [cite: 7]
-       紅色：代表威脅偵測 (PII Leak)、阻斷 [cite: 6, 12]
-       黃色：代表系統警告、延遲監控
-       藍色/青色：代表閘道器 (Gateway) 處理中、權杖化 (Tokenization) [cite: 7, 16]
-       紫色：代表身分保險箱 (Identity Vault) 受限存取區域 [cite: 18, 22]
-    */
-    --green: #00e676; --green2: #00c853; --green-dim: #003d1a;
-    --red: #ff1744; --red2: #ff5252; --red-dim: #3d0010;
-    --yellow: #ffd740; --yellow-dim: #3d3000;
-    --blue: #448aff; --blue2: #82b1ff; --blue-dim: #001a4d;
-    --cyan: #18ffff; --cyan-dim: #003d3d;
-    --purple: #e040fb; --purple-dim: #2d0040;
-    --text: #e0e8ff; --text2: #8a9bc0; --text3: #5a6a90;
-    --font: 'Courier New', monospace; /* 使用等寬字體模擬終端機質感 */
+    /* 背景色階：由深至淺，用於頁面底層、卡片、面板的層次堆疊 */
+    --bg:     #0a0e1a; /* 最深底色（頁面背景） */
+    --bg2:    #0f1528; /* 次底色（部分區塊背景） */
+    --bg3:    #141b30; /* 第三層背景（輸入框、程式碼區） */
+    --panel:  #1a2240; /* 面板主色（卡片背景） */
+    --panel2: #1e2a4a; /* 面板次色（hover 或強調區塊） */
+
+    /* 邊框色階：用於卡片、表格、分隔線 */
+    --border:  #2a3a6a; /* 一般邊框 */
+    --border2: #3a4a7a; /* 強調邊框（hover 或選中狀態） */
+
+    /* 語意色系：每個顏色提供主色、深色變體、暗色背景三種層次 */
+    --green:     #00e676; /* 成功 / 通過 / 健康 */
+    --green2:    #00c853; /* 綠色深色變體（按鈕 hover） */
+    --green-dim: #003d1a; /* 綠色暗背景（成功狀態卡片底色） */
+
+    --red:     #ff1744; /* 危險 / 封鎖 / 威脅 */
+    --red2:    #ff5252; /* 紅色淺色變體（警報文字） */
+    --red-dim: #3d0010; /* 紅色暗背景（威脅警報卡片底色） */
+
+    --yellow:     #ffd740; /* 警告 / 處理中 / 延遲指標 */
+    --yellow-dim: #3d3000; /* 黃色暗背景 */
+
+    --blue:     #448aff; /* 資訊 / API 流量 */
+    --blue2:    #82b1ff; /* 藍色淺色變體（次要文字連結） */
+    --blue-dim: #001a4d; /* 藍色暗背景 */
+
+    --cyan:     #18ffff; /* 代碼化 / 乾淨資料 / 主要強調色 */
+    --cyan-dim: #003d3d; /* 青色暗背景 */
+
+    --purple:     #e040fb; /* 身分識別 / IdentityVault 相關 */
+    --purple-dim: #2d0040; /* 紫色暗背景 */
+
+    /* 文字色階：由亮至暗，用於主文、次要說明、停用提示 */
+    --text:  #e0e8ff; /* 主要文字（高對比） */
+    --text2: #8a9bc0; /* 次要文字（說明、標籤） */
+    --text3: #5a6a90; /* 停用 / 佔位文字（最低對比） */
+
+    /* 統一字型：等寬字型，強化終端機 / 監控系統的視覺風格 */
+    --font: 'Courier New', monospace;
   }
 
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { 
-    background:var(--bg); 
-    color:var(--text); 
-    font-family:var(--font); 
-    font-size:13px; 
-    overflow-x:hidden; 
+  /* ══════════════ CSS Reset ══════════════ */
+  /* 清除所有元素的預設 margin、padding，並統一使用 border-box 盒模型 */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* ══════════════ 頁面基礎樣式 ══════════════ */
+  body {
+    background: var(--bg);       /* 深藍黑色底色，強化監控介面風格 */
+    color: var(--text);          /* 預設文字為高對比淺藍白色 */
+    font-family: var(--font);    /* 全站統一等寬字型 */
+    font-size: 13px;             /* 基礎字級（偏小，配合密集資訊的儀表板佈局） */
+    overflow-x: hidden;          /* 隱藏水平捲軸，防止寬度超出時版面跑版 */
   }
 
-  /* ══════════════ 介面組件樣式 ══════════════ */
+/* ══════════════ 頂部導覽列 ══════════════ */
 
-  /* 頂部狀態欄：呈現系統存活狀態與合規性標章 [cite: 5] */
-  .topbar { ... }
+/* 頂部通欄容器：深色背景 + 底部邊框，水平兩端對齊左右區塊 */
+.topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* 左側 logo 區與右側狀態區分列兩端 */
+}
 
-  /* 指標卡片 (Metric Cards)：
-     展示總攔截數、已脫敏數、已攔截威脅數與系統處理時延 [cite: 31, 32]
-  */
-  .card { ... }
+/* 左側區塊：logo + 系統狀態徽章，水平排列並保持垂直置中 */
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-  /* 流量視覺化 (Traffic Visualizer)：
-     實作「Dirty JSON」與「Clean JSON」的左右對照，
-     展現 Gateway 如何移除 agent_id 並替換為 token_id [cite: 11, 16]
-  */
-  .traffic-container { ... }
+/* 系統 Logo 文字：青色等寬大字，字距加寬強化品牌識別感 */
+.logo {
+  color: var(--cyan);
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
 
+/* Logo 內的強調字（如縮寫中的特定字母）：改為綠色區隔 */
+.logo span { color: var(--green); }
+
+/* 狀態徽章：預設為綠色（系統正常），可套用 .red 變體表示異常 */
+.badge {
+  background: var(--green-dim);   /* 深綠色底，避免過於刺眼 */
+  color: var(--green);
+  border: 1px solid var(--green2);
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 10px;
+}
+
+/* 徽章紅色變體：用於威脅警報數量大於 0 時切換顯示 */
+.badge.red {
+  background: var(--red-dim);
+  color: var(--red2);
+  border-color: var(--red);
+}
+
+/* 右側區塊：時鐘、系統狀態指示燈等資訊，字級偏小並使用次要文字色 */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+/* 即時時鐘文字：青色，與 logo 色系呼應 */
+.clock {
+  color: var(--cyan);
+  font-size: 12px;
+}
+
+/* 系統狀態圓點指示燈：綠色實心圓 + 光暈陰影，搭配呼吸動畫表示系統存活 */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;                  /* 正圓形 */
+  background: var(--green);
+  display: inline-block;
+  box-shadow: 0 0 6px var(--green);   /* 外發光效果，模擬 LED 指示燈 */
+  animation: pulse 2s infinite;       /* 套用呼吸動畫，每 2 秒循環一次 */
+}
+
+/* 呼吸動畫：透明度在 100% ↔ 40% 之間週期性變化，模擬心跳脈衝感 */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }   /* 完全不透明（亮） */
+  50%       { opacity: 0.4; } /* 半透明（暗），製造閃爍節奏 */
+}
+
+/* ══════════════ 頁籤導覽列 ══════════════ */
+
+/* 頁籤列容器：與頂部導覽列同背景，底部邊框分隔內容區，左側留 padding 對齊 */
+.nav {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  padding: 0 20px;
+  gap: 4px;
+}
+
+/* 單一頁籤：底部邊框預設透明（未選中），過渡動畫使切換更滑順 */
+.tab {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text2);                        /* 未選中：低對比次要文字色 */
+  border-bottom: 2px solid transparent;       /* 佔位用透明底線，防止 hover 時高度跳動 */
+  transition: all .2s;
+  letter-spacing: 1px;
+}
+
+/* 頁籤 hover：文字提亮，給予互動回饋 */
+.tab:hover { color: var(--text); }
+
+/* 頁籤選中狀態：文字轉青色，底線顯示為青色，明確標示當前所在頁面 */
+.tab.active {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+}
+
+/* ══════════════ 頁面佈局 ══════════════ */
+
+/* 所有頁面預設隱藏（display:none），由 JS 透過 .active class 控制顯示 */
+.page { display: none; padding: 16px; }
+
+/* 當前啟用頁面：切換為區塊顯示 */
+.page.active { display: block; }
+
+/* 響應式格線系統：2 / 3 / 4 欄等寬格線，統一 12px 欄間距 */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr;             gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr;         gap: 12px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr);      gap: 12px; }
+
+/* ══════════════ 卡片元件 ══════════════ */
+
+/* 卡片容器：深色面板底色 + 邊框 + 圓角，為各區塊提供視覺分組 */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+}
+
+/* 卡片標題列：極小字級 + 大字距，呈現終端機標籤風格 */
+.card-title {
+  font-size: 10px;
+  color: var(--text2);
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 卡片標題左側色條：以 ::before 偽元素實現，依套用的色系 class 變色，
+   寬 3px × 高 12px 的小色條，作為各卡片語意色系的視覺索引 */
+.card-title::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* 各語意色系的色條顏色（對應 CSS 變數色票） */
+.card-title.green::before  { background: var(--green); }  /* 成功 / 通過 */
+.card-title.red::before    { background: var(--red); }    /* 威脅 / 封鎖 */
+.card-title.blue::before   { background: var(--blue); }   /* 資訊 / 流量 */
+.card-title.cyan::before   { background: var(--cyan); }   /* 代碼化 / 主強調 */
+.card-title.yellow::before { background: var(--yellow); } /* 警告 / 延遲 */
+.card-title.purple::before { background: var(--purple); } /* 身分識別 / Vault */
+
+/* ══════════════ 指標卡片 ══════════════ */
+
+/* 指標卡片容器：內容水平置中，用於儀表板頂部四格數字卡片 */
+.metric { text-align: center; }
+
+/* 主要數值：大字級粗體，行高收緊避免上下空間過大 */
+.metric .val {
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 1; /* 行高等於字級，緊貼下方標籤 */
+}
+
+/* 數值下方說明標籤：小字級 + 大字距，呈現系統標籤風格 */
+.metric .lbl {
+  font-size: 10px;
+  color: var(--text2);
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+/* 副標題（備用）：用於卡片內額外的輔助數字或單位說明 */
+.metric .sub {
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+/* ══════════════ 即時流量視覺化（三欄對照區） ══════════════ */
+
+/* 外層容器：水平 Flexbox，三欄（原始封包 ← 閘道 → 乾淨封包）等高延伸 */
+.traffic-container {
+  display: flex;
+  align-items: stretch; /* 三欄統一高度，不因內容多寡而高度不一 */
+  gap: 0;               /* 欄間不留間距，閘道方塊直接夾在兩側面板中間 */
+  margin-top: 8px;
+}
+
+/* 左右封包面板：佔滿剩餘空間（flex:1），圓角與內距統一 */
+.traffic-panel {
+  flex: 1;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+  position: relative;
+}
+
+/* 左側面板（原始髒封包）：紅色主題，視覺上傳達「危險 / 含 PII」 */
+.traffic-panel.dirty {
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+}
+
+/* 右側面板（乾淨封包）：綠色主題，視覺上傳達「安全 / 已代碼化」 */
+.traffic-panel.clean {
+  background: var(--green-dim);
+  border: 1px solid var(--green);
+}
+
+/* 面板頂部標籤：極小字級 + 大字距，說明此面板的資料方向與狀態 */
+.traffic-panel .panel-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+/* 標籤色系隨面板主題變化 */
+.traffic-panel.dirty .panel-label { color: var(--red2); }  /* 紅色：原始 / 危險 */
+.traffic-panel.clean .panel-label { color: var(--green); } /* 綠色：乾淨 / 安全 */
+
+/* 中央閘道區：固定寬度 140px，不隨容器縮放，垂直排列閘道元素 */
+.gateway-center {
+  width: 140px;
+  flex-shrink: 0;      /* 防止容器縮小時閘道方塊被壓縮 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+}
+
+/* 閘道狀態方塊：藍色主題邊框，圓角方塊視覺上象徵安全處理核心 */
+.gateway-box {
+  background: var(--blue-dim);
+  border: 2px solid var(--blue);
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+  position: relative;
+}
+
+/* 閘道標題文字（「GATEWAY」字樣）：藍色小字 + 大字距 */
+.gateway-box .gw-label {
+  font-size: 9px;
+  color: var(--blue2);
+  letter-spacing: 2px;
+}
+
+/* 閘道 emoji 圖示（🛡）：較大字級，視覺焦點 */
+.gateway-box .gw-icon {
+  font-size: 22px;
+  margin: 4px 0;
+}
+
+/* 閘道即時狀態文字（READY / SCANNING / BLOCKED…）：預設綠色，由 JS 動態變色 */
+.gateway-status {
+  font-size: 9px;
+  color: var(--green);
+}
+
+/* 流向箭頭（→）：次要文字色，字級加大提升視覺引導效果 */
+.arrow-right {
+  color: var(--text2);
+  font-size: 18px;
+}
+
+/* JSON 封包顯示區：等寬字型 + 自動換行，限制最大高度並允許垂直捲動 */
+.json-display {
+  font-family: var(--font);
+  font-size: 10px;
+  line-height: 1.7;
+  white-space: pre-wrap;  /* 保留換行與縮排，同時允許長行自動折行 */
+  word-break: break-all;  /* 強制截斷超長字串（如 UUID），防止水平溢出 */
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+/* JSON 語法高亮色系 */
+.json-key          { color: #82b1ff; }  /* 鍵名：淡藍色 */
+.json-val          { color: #a5d6a7; }  /* 一般值：淡綠色 */
+.json-val.pii      { color: var(--red2); font-weight: bold; text-decoration: underline; }
+/* PII 值：紅色 + 粗體 + 底線，三重標記確保視覺上絕對醒目 */
+.json-val.token    { color: var(--cyan); }  /* UUID Token 值：青色，與代碼化主題色呼應 */
+
+/* ══════════════ API 串流日誌 ══════════════ */
+
+/* 日誌容器：黑色底 + 細邊框，固定高度 200px 並允許垂直捲動 */
+.stream-log {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  font-size: 10px;
+  line-height: 1.8;
+}
+
+/* 單筆日誌條目：水平 Flex 排列各欄位，底線分隔每筆紀錄 */
+.log-entry {
+  display: flex;
+  gap: 8px;
+  align-items: baseline; /* 以文字基線對齊，確保不同字級的欄位視覺對齊 */
+  border-bottom: 1px solid var(--border);
+  padding: 2px 0;
+}
+
+/* 時間戳記欄：最低對比灰色，視覺上退到背景不搶奪焦點 */
+.log-ts {
+  color: var(--text3);
+  flex-shrink: 0; /* 固定寬度，不隨容器縮放 */
+}
+
+/* HTTP 方法欄（GET / POST…）：藍色 + 固定寬度 34px 對齊 */
+.log-method {
+  color: var(--blue2);
+  flex-shrink: 0;
+  width: 34px;
+}
+
+/* API 路徑欄：次要文字色，flex:1 佔滿剩餘空間 */
+.log-path {
+  color: var(--text2);
+  flex: 1;
+}
+
+/* HTTP 狀態碼欄：固定寬度 36px，文字靠右對齊 */
+.log-status {
+  flex-shrink: 0;
+  width: 36px;
+  text-align: right;
+}
+
+/* PII 警示標籤（⚠PII）：紅色小字，附加於含 PII 的請求條目末端 */
+.log-pii {
+  color: var(--red2);
+  font-size: 9px;
+}
+
+/* HTTP 狀態碼語意色（套用於 .log-status 元素） */
+.s200 { color: var(--green); }  /* 2xx 成功：綠色 */
+.s400 { color: var(--yellow); } /* 4xx 用戶端錯誤（含 403 封鎖）：黃色 */
+.s500 { color: var(--red); }    /* 5xx 伺服器錯誤：紅色 */
+
+/* ══════════════ 威脅警報卡片 ══════════════ */
+
+/* 警報卡片容器：水平排列圖示與文字，入場時套用滑入動畫 */
+.alert-box {
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start; /* 頂部對齊，避免多行文字時圖示被垂直置中拉離頂部 */
+  gap: 10px;
+  animation: alertIn .3s ease; /* 每筆新警報出現時觸發滑入效果 */
+}
+
+/* 警報入場動畫：從左偏移 10px + 透明 → 原位 + 完全不透明 */
+@keyframes alertIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 三種嚴重程度的警報主題色 */
+.alert-box.critical { background: var(--red-dim);    border: 1px solid var(--red); }    /* 嚴重：紅色，PII 洩漏封鎖事件 */
+.alert-box.warning  { background: var(--yellow-dim); border: 1px solid var(--yellow); } /* 警告：黃色，異常但未封鎖的情況 */
+.alert-box.info     { background: var(--blue-dim);   border: 1px solid var(--border2); }/* 資訊：藍色，一般系統通知 */
+
+/* 警報 emoji 圖示：固定不縮放，確保多行文字時圖示不被壓縮 */
+.alert-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* 警報標題：粗體小字，顏色隨嚴重程度變化 */
+.alert-title {
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 3px;
+}
+.alert-box.critical .alert-title { color: var(--red2); }    /* 嚴重：紅色標題 */
+.alert-box.warning  .alert-title { color: var(--yellow); }  /* 警告：黃色標題 */
+.alert-box.info     .alert-title { color: var(--blue2); }   /* 資訊：藍色標題 */
+
+/* 警報內文：次要文字色，行高加大提升多行時的可讀性 */
+.alert-body {
+  font-size: 10px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+
+/* 警報時間戳記：最低對比灰色，視覺上退到背景不搶奪焦點 */
+.alert-time {
+  font-size: 9px;
+  color: var(--text3);
+  margin-top: 3px;
+}
+
+/* 新警報閃爍動畫：透明度 100% ↔ 20% 快速來回，重複 3 次後停止
+   由 JS 在 addAlert() 中動態添加此 class，吸引使用者注意 */
+.flash { animation: flash 0.5s ease 3; }
+@keyframes flash {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+
+/* ══════════════ 模擬器表單 ══════════════ */
+
+/* 表單容器：單欄格線，各欄位垂直排列並保持一致間距 */
+.sim-form {
+  display: grid;
+  gap: 8px;
+}
+
+/* 單列表單欄位：兩欄格線（標籤固定 100px / 輸入框佔滿剩餘） */
+.sim-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 欄位標籤：次要文字色，靠右對齊使視覺上與右側輸入框形成整齊垂直線 */
+.sim-row label {
+  font-size: 10px;
+  color: var(--text2);
+  text-align: right;
+}
+
+/* 輸入框與下拉選單：深色底 + 細邊框，統一等寬字型與內距 */
+.sim-row input,
+.sim-row select {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-family: var(--font);
+  font-size: 11px;
+  outline: none; /* 移除瀏覽器預設外框，改由 focus 樣式接管 */
+}
+
+/* 聚焦狀態：邊框轉青色，給予明確的鍵盤導覽視覺回饋 */
+.sim-row input:focus,
+.sim-row select:focus {
+  border-color: var(--cyan);
+}
+
+/* ══════════════ 按鈕元件系統 ══════════════ */
+
+/* 按鈕基底：統一等寬字型、字距、圓角與過渡動畫 */
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 1px;
+  transition: all .2s;
+}
+
+/* 主要操作按鈕（藍色）：送出請求等正向操作 */
+.btn-primary       { background: var(--blue-dim); color: var(--blue2); border: 1px solid var(--blue); }
+.btn-primary:hover { background: var(--blue); color: #fff; } /* hover：深藍背景轉為實色亮藍 */
+
+/* 危險操作按鈕（紅色）：PII 注入測試等破壞性操作 */
+.btn-danger        { background: var(--red-dim); color: var(--red2); border: 1px solid var(--red); }
+.btn-danger:hover  { background: var(--red); color: #fff; }
+
+/* 成功操作按鈕（綠色）：啟動自動模擬等正面操作 */
+.btn-green         { background: var(--green-dim); color: var(--green); border: 1px solid var(--green2); }
+.btn-green:hover   { background: var(--green2); color: #000; } /* hover：深色文字搭配亮綠背景，確保對比度 */
+
+/* 小型按鈕變體：較小內距與字級，用於次要操作（如停止、清除） */
+.btn-sm { padding: 4px 10px; font-size: 10px; }
+
+/* 按鈕列容器：水平排列，允許在容器不足時自動換行 */
+.btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+/* ══════════════ 結果顯示面板 ══════════════ */
+
+/* 閘道回應結果區：黑色底 + 細邊框，最小高度確保空白狀態下不塌陷 */
+.result-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 10px;
+  line-height: 1.8;
+  margin-top: 8px;
+  min-height: 60px; /* 無內容時維持固定高度，防止版面跳動 */
+}
+
+/* ══════════════ 資料庫資料表 ══════════════ */
+
+/* 表格容器：100% 寬度，合併邊框避免雙線邊框 */
+.db-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+/* 表頭儲存格：深色面板底色 + 次要文字色，細邊框分隔表頭與資料列 */
+.db-table th {
+  background: var(--panel2);
+  color: var(--text2);
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: normal;  /* 不加粗，維持儀表板的低調標籤風格 */
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border2);
+  font-size: 9px;
+}
+
+/* 資料儲存格：上對齊（適合多行內容），底部細線分隔各列 */
+.db-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: top;
+}
+
+/* 資料列 hover 高亮：背景加深，提升密集表格的行內容追蹤能力 */
+.db-table tr:hover td { background: var(--panel2); }
+
+/* 各欄位語意色標記 */
+.db-table .pk    { color: var(--yellow); font-size: 9px; }  /* 主鍵（PK）：黃色 */
+.db-table .enc   { color: var(--purple); font-size: 9px; }  /* 加密欄位（ENC）：紫色，呼應 IdentityVault 主題 */
+.db-table .token { color: var(--cyan); font-family: var(--font); } /* UUID Token：青色等寬字型 */
+
+/* 布林值欄位語意色：TRUE 顯示綠色（正常）或 TRUE ⚠ 紅色（有 PII），FALSE 顯示低調灰色 */
+.db-table .bool-t { color: var(--green); }
+.db-table .bool-f { color: var(--text3); }
+
+/* 表格橫向捲動容器：內容超出時允許水平捲動，防止表格破版 */
+.db-table-wrap { overflow-x: auto; }
+
+/* 模組識別碼標籤：小型膠囊樣式，用於 module_id 等短字串標記 */
+.db-tag {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 9px;
+  color: var(--text2);
+  margin: 1px;
+}
+
+/* ══════════════ 進度條 ══════════════ */
+
+/* 進度條外框：深色底、圓角、固定高度 6px，超出部分裁切 */
+.progress-bar {
+  background: var(--bg);
+  border-radius: 3px;
+  height: 6px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+/* 進度條填充：高度撐滿外框，寬度由 JS 動態設定；過渡動畫使數值變化更流暢 */
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .5s ease; /* 寬度變化時以 0.5s 緩動過渡，避免數字跳躍感 */
+}
+
+/* ══════════════ 自訂捲軸（WebKit 引擎） ══════════════ */
+
+/* 捲軸寬度與高度：極細（4px），不影響內容區域的閱讀體驗 */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+
+/* 捲軸軌道：與頁面底色相同，視覺上融入背景 */
+::-webkit-scrollbar-track { background: var(--bg); }
+
+/* 捲軸滑塊：次要邊框色 + 圓角，低調但可識別 */
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 2px;
+}
+
+/* ══════════════ 系統架構圖 ══════════════ */
+
+/* 架構圖外層容器：水平 Flex 排列各節點，水平垂直置中，節點間不留額外間距 */
+.schema-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;        /* 節點間距由 .schema-arrow 的 padding 控制，此處不疊加 */
+  padding: 10px 0;
+}
+
+/* 架構圖節點方塊：深色底 + 圓角邊框，各資料庫節點的共用基底樣式 */
+.schema-box {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  min-width: 140px; /* 確保節點最小寬度，防止內容較少時方塊過窄失衡 */
+}
+
+/* 節點標題（資料庫名稱）：小字級 + 大字距 + 粗體，呈現系統標籤風格 */
+.schema-box .db-name {
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+/* 節點欄位列表：極小字、次要色，底線分隔各欄位 */
+.schema-box .db-field {
+  font-size: 9px;
+  color: var(--text2);
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 最後一個欄位不顯示底線，避免與節點下邊框產生雙線 */
+.schema-box .db-field:last-child { border: none; }
+
+/* 主鍵（PK）/ 外鍵（FK）標記：黃色，與資料庫頁的 .pk class 色系一致 */
+.schema-box .db-field .fk { color: var(--yellow); }
+
+/* 節點間流向箭頭：垂直排列箭頭符號與標籤文字 */
+.schema-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 8px;      /* 左右留白製造箭頭與節點之間的視覺呼吸感 */
+  color: var(--text3);
+  font-size: 20px;     /* 箭頭字元加大，提升流向引導的視覺份量 */
+}
+
+/* 箭頭下方流向標籤（DIRTY / SPLIT / ALL）：極小字 + 大字距 */
+.schema-arrow .arrow-label {
+  font-size: 8px;
+  color: var(--text3);
+  letter-spacing: 1px;
+}
+
+/* 各資料庫節點的語意色系（邊框色 + 標題色），與儀表板卡片色系對應 */
+.schema-box.vault     { border-color: var(--purple); } /* IdentityVault：紫色，代表最高機密隔離 */
+.schema-box.vault     .db-name { color: var(--purple); }
+
+.schema-box.telemetry { border-color: var(--green); }  /* TelemetryDB：綠色，代表安全匿名資料 */
+.schema-box.telemetry .db-name { color: var(--green); }
+
+.schema-box.audit     { border-color: var(--yellow); } /* ApiTrafficLogs：黃色，代表稽核警示 */
+.schema-box.audit     .db-name { color: var(--yellow); }
+
+.schema-box.gateway   { border-color: var(--blue); }   /* 安全閘道 / 平板 App：藍色，代表入站流量 */
+.schema-box.gateway   .db-name { color: var(--blue); }
+
+/* ══════════════ 通用工具 class ══════════════ */
+
+/* 間距工具 */
+.gap8 { gap: 8px; }
+.mt8  { margin-top: 8px; }
+.mt4  { margin-top: 4px; }
+
+/* 格線全欄佔位：在 grid 佈局中讓元素橫跨所有欄位 */
+.full { grid-column: 1 / -1; }
+
+/* 語意文字色工具 class（對應各功能模組的主題色） */
+.text-green  { color: var(--green); }   /* 成功 / 通過 / 安全 */
+.text-red    { color: var(--red2); }    /* 威脅 / 封鎖 / 危險 */
+.text-cyan   { color: var(--cyan); }    /* 代碼化 / 主強調 */
+.text-yellow { color: var(--yellow); }  /* 警告 / 延遲 / 稽核 */
+.text-blue2  { color: var(--blue2); }   /* 資訊 / 次要強調 */
+.text-purple { color: var(--purple); }  /* 身分識別 / Vault */
+.text-dim    { color: var(--text2); }   /* 次要說明文字 */
+
+/* 區塊標題列：小字大字距，底部細線與內容區分隔 */
+.section-title {
+  font-size: 10px;
+  color: var(--text2);
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
 </style>
 </head>
 <body>
 
-<script>
-// ══════════════ 核心業務邏輯：安全數據閘道器 ══════════════
+<!-- ══════════════ 頂部導覽列 ══════════════ -->
+<div class="topbar">
+  <div class="topbar-left">
 
-/**
- * 系統狀態管理：模擬資料庫的邏輯分離 [cite: 20, 21]
- */
-const state = {
-  total: 0, 
-  clean: 0, 
-  threats: 0, 
-  latencies: [],
-  
-  // 核心資料表 [cite: 19]
-  vault: [],     // IdentityVault: 嚴格隔離的身分映射表 [cite: 22]
-  telemetry: [], // TelemetryLogs: 已匿名化的行為分析表 [cite: 33, 34]
-  audit: [],     // ApiTrafficLogs: 閘道器存取審計表 [cite: 27]
-  
-  alerts: []
-};
+    <!-- 系統 Logo：L.I.F.E. 為白色青色，PULSE 為綠色強調 -->
+    <div class="logo">L.I.F.E.<span>PULSE</span></div>
 
-/**
- * PII 偵測模式：根據台灣《個資法》(PDPA) 定義敏感資訊 [cite: 5, 12]
- */
-const PII_PATTERNS = {
-  nid:   { re:/[A-Z][12]\d{8}/g,          label:'台灣身分證字號' },
-  email: { re:/[^\s]+@[^\s]+\.[^\s]+/g,    label:'電子郵件' },
-  phone: { re:/09\d{8}/g,                  label:'行動電話' }
-};
+    <!-- 分隔符號 -->
+    <div style="color:var(--text3);font-size:11px;">►</div>
 
-/**
- * 中介軟體攔截函數 (The Interceptor) [cite: 14, 15]
- * 功能：攔截 POST 請求，執行掃描、權杖化與路由分配。
- */
-function processRequest(payload) {
-  // 1. 執行 PII 掃描 [cite: 12]
-  const piiFound = scanPII(payload);
-  
-  if (piiFound.length > 0) {
-    // 若發現洩漏企圖，紀錄威脅並阻斷 [cite: 31]
-    handleThreat(piiFound);
-    return { blocked: true };
-  }
+    <!-- 系統副標題 -->
+    <div style="color:var(--text2);font-size:11px;letter-spacing:1px;">SECURE DATA GATEWAY</div>
 
-  // 2. 權杖化處理 (Tokenization) [cite: 16]
-  // 移除真實 agent_id，生成隨機 UUID。
-  const tokenId = crypto.randomUUID();
-  
-  // 3. 數據寫入 (Payload Routing) [cite: 17, 18]
-  // 將真實身分映射寫入 IdentityVault，將匿名數據送往 TelemetryLogs。
-  saveToVault(payload.agent_id, tokenId);
-  saveToTelemetry(payload, tokenId);
-  
-  return { blocked: false, cleanPayload: transform(payload, tokenId) };
-}
+    <!-- 合規狀態徽章：常態顯示，表示系統符合 PDPA 個資保護法規 -->
+    <div class="badge">PDPA COMPLIANT</div>
 
-/**
- * 對抗「遺忘曲線」：收集行為數據以訓練 Spaced Repetition 演算法 [cite: 57, 58, 66]
- * 此處收集 agent 學習、掙扎與反應時間，但完全不帶身分資訊。 [cite: 3, 4]
- */
-function saveToTelemetry(payload, tokenId) {
-  state.telemetry.push({
-    token_id: tokenId, // 僅存權杖，不存真名 [cite: 34]
-    module_id: payload.module_id,
-    score: payload.score,
-    duration_s: payload.duration_s,
-    timestamp: new Date().toISOString()
-  });
-}
+    <!-- 威脅警報徽章：預設隱藏，當 state.threats > 0 時由 JS 切換為顯示 -->
+    <div class="badge red" id="threatBadge" style="display:none;">⚠ PII THREAT DETECTED</div>
 
-// ... 剩餘 UI 更新與模擬函數
-</script>
-</body>
-</html>
+  </div>
+  <div class="topbar-right">
 
-/* ══════════════ 頂部狀態列 (TOP BAR) ══════════════ 
-     此區域提供系統整體的健康狀態監控，包含合規性標章與即時警示。
-  */
-  .topbar { 
-    background: var(--bg2); 
-    border-bottom: 1px solid var(--border); 
-    padding: 10px 20px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-  }
+    <!-- 系統狀態指示：綠色呼吸點 + 「GATEWAY ONLINE」文字，表示閘道運作正常 -->
+    <span><span class="status-dot"></span> GATEWAY ONLINE</span>
 
-  /* 左側區域：包含系統標誌與合規狀態標籤 (PDPA Compliance) */
-  .topbar-left { display: flex; align-items: center; gap: 12px; }
-  
-  /* L.I.F.E. Pulse Logo 樣式：展現品牌識別 */
-  .logo { color: var(--cyan); font-size: 16px; font-weight: bold; letter-spacing: 2px; }
-  .logo span { color: var(--green); }
+    <!-- 即時時鐘：初始顯示佔位符，由 JS 的 updateClock() 每秒更新 -->
+    <span class="clock" id="clock">--:--:--</span>
 
-  /* 狀態標籤 (Badge)：用於呈現「PDPA COMPLIANT」等法遵訊息 */
-  .badge { 
-    background: var(--green-dim); 
-    color: var(--green); 
-    border: 1px solid var(--green2); 
-    border-radius: 3px; 
-    padding: 2px 8px; 
-    font-size: 10px; 
-  }
+  </div>
+</div>
 
-  /* 紅色警告標籤：當 PII 偵測器攔截到異常流量時，動態切換至此樣式 */
-  .badge.red { 
-    background: var(--red-dim); 
-    color: var(--red2); 
-    border-color: var(--red); 
-  }
+<!-- ══════════════ 頁籤導覽列 ══════════════ -->
+<div class="nav">
+  <!-- 預設選中儀表板頁籤（.active class），其餘頁籤由 showTab() 切換 -->
+  <div class="tab active" onclick="showTab('dashboard')">📊 DASHBOARD</div>  <!-- 儀表板：系統總覽與即時指標 -->
+  <div class="tab" onclick="showTab('traffic')">🔀 LIVE TRAFFIC</div>         <!-- 即時流量：封包轉換視覺化 -->
+  <div class="tab" onclick="showTab('simulator')">⚡ SIMULATOR</div>           <!-- 模擬器：手動送出測試請求 -->
+  <div class="tab" onclick="showTab('databases')">🗄 DATABASES</div>           <!-- 資料庫：三張資料表瀏覽 -->
+  <div class="tab" onclick="showTab('schema')">🔗 SCHEMA</div>                 <!-- 架構圖：系統資料流向總覽 -->
+</div>
 
-  /* 右側區域：系統運行指標與即時時鐘 */
-  .topbar-right { display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--text2); }
-  .clock { color: var(--cyan); font-size: 12px; }
 
-  /* 線上狀態指示燈 (Status Dot)：
-     利用動畫效果展現 Gateway 正在運作中 (Live Trace)，
-     確保攔截器 (Interceptor) 處於 Active 狀態
-  */
-  .status-dot { 
-    width: 8px; 
-    height: 8px; 
-    border-radius: 50%; 
-    background: var(--green); 
-    display: inline-block; 
-    box-shadow: 0 0 6px var(--green); 
-    animation: pulse 2s infinite; 
-  }
-
-  /* 呼吸燈動畫：強化即時監控的視覺動態 */
-  @keyframes pulse { 
-    0%, 100% { opacity: 1; } 
-    50% { opacity: 0.4; } 
-  }
-
-/* ══════════════ 導覽分頁 (NAV TABS) ══════════════ 
-     提供多維度的監控視角，實作系統功能的模組化切換。
-  */
-  .nav { 
-    background: var(--bg2); 
-    border-bottom: 1px solid var(--border); 
-    display: flex; 
-    padding: 0 20px; 
-    gap: 4px; 
-  }
-
-  /* 分頁標籤樣式：
-     針對不同的資安角色提供進入點，例如：
-     - DASHBOARD: 高階決策與威脅概覽 
-     - LIVE TRAFFIC: 開發者/運維人員對去識別化過程的即時監控 [cite: 10]
-     - DATABASES: 符合 PDPA 規範的數據存取分離展示 [cite: 20]
-  */
-  .tab { 
-    padding: 10px 16px; 
-    cursor: pointer; 
-    font-size: 11px; 
-    color: var(--text2); 
-    border-bottom: 2px solid transparent; 
-    transition: all .2s; 
-    letter-spacing: 1px; 
-    text-transform: uppercase; /* 強化終端機/專業監控感 */
-  }
-
-  /* 滑鼠懸停效果：提升使用者互動體驗 */
-  .tab:hover { 
-    color: var(--text); 
-  }
-
-  /* 啟用中狀態 (Active)：
-     利用青色 (Cyan) 高亮目前的所在位置，強化導覽直覺。
-  */
-  .tab.active { 
-    color: var(--cyan); 
-    border-bottom-color: var(--cyan); 
-  }
-
-/* ══════════════ 佈局結構 (LAYOUT) ══════════════ 
-     採用 CSS Grid 網格系統，確保多維度監控指標能直觀地在各類螢幕上呈現。
-  */
-
-  /* 分頁控制：實作多分頁介面 (Single Page Application 邏輯) */
-  .page { 
-    display: none;     /* 預設隱藏所有功能分頁 */
-    padding: 16px; 
-  }
-
-  /* 啟動狀態：當 JS 切換分頁時，僅顯示帶有 .active 類別的頁面 */
-  .page.active { 
-    display: block;    /* 顯示目前選擇的監控視角 */
-  }
-
-  /* 二欄式佈局：常用於對比顯示 (例如：Dirty Payload vs. Clean Payload)  */
-  .grid2 { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 12px; 
-  }
-
-  /* 三欄式佈局：常用於細部規則監控 (例如：NID, Email, Phone 的偵測狀態) [cite: 12] */
-  .grid3 { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr 1fr; 
-    gap: 12px; 
-  }
-
-  /* 四欄式佈局：頂部核心指標列 (Metric Row) 
-     用於快速掃描 Requests、Clean Payloads、Threats 與 Latency。
-  */
-  .grid4 { 
-    display: grid; 
-    grid-template-columns: repeat(4, 1fr); 
-    gap: 12px; 
-  }
-
-/* ══════════════ 資訊卡片組件 (CARDS) ══════════════ 
-     封裝各類監控指標與數據列表，提供統一的視覺邊界與層次感。
-  */
-  .card { 
-    background: var(--panel); 
-    border: 1px solid var(--border); 
-    border-radius: 6px; 
-    padding: 14px; 
-  }
-
-  /* 卡片標題樣式：
-     採用全大寫與寬字距，模仿專業資安監控終端 (Control Center) 的視覺風格。
-  */
-  .card-title { 
-    font-size: 10px; 
-    color: var(--text2); 
-    letter-spacing: 2px; 
-    margin-bottom: 10px; 
-    display: flex; 
-    align-items: center; 
-    gap: 6px; 
-    text-transform: uppercase;
-  }
-
-  /* 標題左側的彩色指示條 (Visual Tags)：
-     利用顏色快速分類資訊性質，符合「資訊安全儀表板」的視覺語意 。
-  */
-  .card-title::before { 
-    content: ''; 
-    width: 3px; 
-    height: 12px; 
-    border-radius: 2px; 
-  }
-
-  /* 顏色語意定義：
-     - Green:  代表一般流量、API 正常狀態或 PDPA 合規規則。
-     - Red:    代表威脅告警 (Threat Alerts) 或 PII 偵測攔截 [cite: 12, 31]。
-     - Blue:   代表 API 流量日誌或中介軟體 (Middleware) 處理狀態 [cite: 14]。
-     - Cyan:   代表權杖化 (Tokenization) 邏輯與 Clean JSON 輸出 [cite: 11, 16]。
-     - Yellow: 代表系統延遲、健康度檢查或審計日誌 (Audit Logs)。
-     - Purple: 代表最高安全權限的「身分金庫 (IdentityVault)」[cite: 18, 22]。
-  */
-  .card-title.green::before  { background: var(--green); }
-  .card-title.red::before    { background: var(--red); }
-  .card-title.blue::before   { background: var(--blue); }
-  .card-title.cyan::before   { background: var(--cyan); }
-  .card-title.yellow::before { background: var(--yellow); }
-  .card-title.purple::before { background: var(--purple); }
-
-/* ══════════════ 核心指標卡片 (METRIC CARDS) ══════════════ 
-     用於呈現高層級的安全與效能數據，如總處理量、阻斷威脅數與平均時延。
-  */
-  .metric { 
-    text-align: center; /* 置中對齊，強化數據的視覺衝擊力 */
-  }
-
-  /* 指標數值 (Value)：
-     使用 28px 大字重，確保資安官能第一時間掌握核心數據 (如已脫敏的 Clean Payloads 數量)。
-  */
-  .metric .val { 
-    font-size: 28px; 
-    font-weight: bold; 
-    line-height: 1; 
-  }
-
-  /* 指標標籤 (Label)：
-     描述數據內容 (例如：TOTAL INTERCEPTED)，協助理解指標含義。
-  */
-  .metric .lbl { 
-    font-size: 10px; 
-    color: var(--text2); 
-    margin-top: 4px; 
-    letter-spacing: 1px; 
-    text-transform: uppercase;
-  }
-
-  /* 次要補充資訊 (Subtext)：
-     可用於呈現成長率或百分比，輔助判斷數據趨勢。
-  */
-  .metric .sub { 
-    font-size: 10px; 
-    margin-top: 4px; 
-  }
-
-/* ══════════════ 流量視覺化監控 (TRAFFIC VISUALIZER) ══════════════ 
-     實作「數位邊境檢查站」的視覺化，展示數據脫敏 (Data Masking) 的處理過程。
-  */
-  .traffic-container { 
-    display: flex; 
-    align-items: stretch; 
-    gap: 0; 
-    margin-top: 8px; 
-  }
-
-  /* 數據面板基礎樣式 */
-  .traffic-panel { 
-    flex: 1; 
-    border-radius: 6px; 
-    padding: 10px; 
-    font-size: 11px; 
-    position: relative; 
-  }
-
-  /* 左側面板：原始數據 (Dirty Payload) 
-     背景使用暗紅色，警示此區域包含敏感的 PII (如姓名或員工 ID)。
-  */
-  .traffic-panel.dirty { 
-    background: var(--red-dim); 
-    border: 1px solid var(--red); 
-  }
-
-  /* 右側面板：脫敏數據 (Clean Payload) 
-     背景使用暗綠色，代表數據已完成權杖化，符合資安傳輸標準。
-  */
-  .traffic-panel.clean { 
-    background: var(--green-dim); 
-    border: 1px solid var(--green); 
-  }
-
-  /* 面板標籤樣式 (例如：INCOMING / OUTGOING) */
-  .traffic-panel .panel-label { 
-    font-size: 9px; 
-    letter-spacing: 2px; 
-    margin-bottom: 8px; 
-    font-weight: bold; 
-    text-transform: uppercase;
-  }
-
-  .traffic-panel.dirty .panel-label { color: var(--red2); }
-  .traffic-panel.clean .panel-label { color: var(--green); }
-
-  /* 中央閘道器區域 (Gateway Center)：
-     代表介於前端與資料庫之間的中介軟體攔截器 (Interceptor Middleware)。
-  */
-  .gateway-center { 
-    width: 140px; 
-    flex-shrink: 0; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    justify-content: center; 
-    gap: 6px; 
-    padding: 8px; 
-  }
-
-  /* 閘道器核心盒子 */
-  .gateway-box { 
-    background: var(--blue-dim); 
-    border: 2px solid var(--blue); 
-    border-radius: 8px; 
-    padding: 10px 14px; 
-    text-align: center; 
-    position: relative; 
-  }
-
-  .gateway-box .gw-label { font-size: 9px; color: var(--blue2); letter-spacing: 2px; }
-  .gateway-box .gw-icon { font-size: 22px; margin: 4px 0; }
-  .gateway-status { font-size: 9px; color: var(--green); }
-  .arrow-right { color: var(--text2); font-size: 18px; }
-
-  /* JSON 數據呈現區域：模仿 IDE 程式碼語法高亮 */
-  .json-display { 
-    font-family: var(--font); 
-    font-size: 10px; 
-    line-height: 1.7; 
-    white-space: pre-wrap; 
-    word-break: break-all; 
-    max-height: 160px; 
-    overflow-y:
-
-/* ══════════════ 即時串流日誌 (STREAM LOG) ══════════════ 
-     呈現所有通過 Gateway 的 API 流量審計紀錄 (Audit Trail)，
-     協助追蹤「L.I.F.E. Pulse」數據傳輸的安全性與狀態 [cite: 3, 27]。
-  */
-  .stream-log { 
-    background: var(--bg); 
-    border: 1px solid var(--border); 
-    border-radius: 4px; 
-    height: 200px; 
-    overflow-y: auto;      /* 啟用垂直捲軸以應對高頻率流量 */
-    padding: 8px; 
-    font-size: 10px; 
-    line-height: 1.8; 
-  }
-
-  /* 單筆日誌分列設定：使用 Flexbox 確保各項指標對齊 */
-  .log-entry { 
-    display: flex; 
-    gap: 8px; 
-    align-items: baseline; 
-    border-bottom: 1px solid var(--border); 
-    padding: 2px 0; 
-  }
-
-  /* 時間戳記 (Timestamp)：精確記錄每次 API 請求時間 */
-  .log-ts { color: var(--text3); flex-shrink: 0; }
-
-  /* HTTP 方法 (如 POST)：標示請求動作類型 [cite: 15] */
-  .log-method { color: var(--blue2); flex-shrink: 0; width: 34px; }
-
-  /* 存取路徑 (Path)：例如 /api/v1/submit_sprint [cite: 29] */
-  .log-path { color: var(--text2); flex: 1; }
-
-  /* 回應狀態碼 (Status)：靠右對齊，便於快速掃描是否有錯誤發生 */
-  .log-status { flex-shrink: 0; width: 36px; text-align: right; }
-
-  /* PII 威脅標記：若偵測到洩漏風險，顯示紅色的 PII 警示字樣 [cite: 31] */
-  .log-pii { color: var(--red2); font-size: 9px; font-weight: bold; }
-
-  /* 狀態碼語意配色：
-     - .s200 (Success): 綠色，代表成功去識別化並安全儲存 [cite: 34]
-     - .s400 (Client Error): 黃色，代表請求格式錯誤
-     - .s500 (Server Error): 紅色，代表系統異常
-  */
-  .s200 { color: var(--green); } 
-  .s400 { color: var(--yellow); } 
-  .s500 { color: var(--red); }
-
-/* ══════════════ 威脅告警系統 (THREAT ALERT) ══════════════ 
-     實作「數位邊界檢查站」的即時通知機制，當偵測到敏感資訊 (PII) 企圖越權存取時，
-     系統將會根據威脅等級 (Critical/Warning/Info) 觸發此區域的顯示 。
-  */
-  .alert-box { 
-    border-radius: 6px; 
-    padding: 12px; 
-    margin-bottom: 8px; 
-    display: flex; 
-    align-items: flex-start; 
-    gap: 10px; 
-    /* 進場動畫：從左方滑入並漸顯，確保資安人員能立即注意到新的威脅事件 */
-    animation: alertIn .3s ease; 
-  }
-
-  @keyframes alertIn { 
-    from { opacity: 0; transform: translateX(-10px); } 
-    to { opacity: 1; transform: none; } 
-  }
-
-  /* 嚴重威脅：偵測到 PII (如台灣身分證、手機) 直接暴露於 Payload 中 
-     背景與邊框使用深紅色調，對應 PDPA 合規中最高等級的攔截警示 [cite: 5, 12]。
-  */
-  .alert-box.critical { 
-    background: var(--red-dim); 
-    border: 1px solid var(--red); 
-  }
-
-  /* 一般警告：偵測到非標準格式數據或潛在的個資外洩風險 */
-  .alert-box.warning { 
-    background: var(--yellow-dim); 
-    border: 1px solid var(--yellow); 
-  }
-
-  /* 系統資訊：用於紀錄正常的 Gateway 狀態更新或 API 通訊資訊 */
-  .alert-box.info { 
-    background: var(--blue-dim); 
-    border: 1px solid var(--border2); 
-  }
-
-  /* 圖示與標題：透過顏色強化視覺語意層次 */
-  .alert-icon { font-size: 18px; flex-shrink: 0; }
-  .alert-title { font-size: 11px; font-weight: bold; margin-bottom: 3px; }
-
-  /* 不同層級標題的特定顏色設定 */
-  .alert-box.critical .alert-title { color: var(--red2); }
-  .alert-box.warning .alert-title { color: var(--yellow); }
-  .alert-box.info .alert-title { color: var(--blue2); }
-
-  /* 告警內容與發生時間：呈現具體的威脅細節與時間戳記 */
-  .alert-body { font-size: 10px; color: var(--text2); line-height: 1.5; }
-  .alert-time { font-size: 9px; color: var(--text3); margin-top: 3px; }
-
-  /* 閃爍動畫：當偵測到嚴重洩漏 (如身分證字號) 時觸發，強化警示效果  */
-  .flash { animation: flash 0.5s ease 3; }
-  
-  @keyframes flash { 
-    0%, 100% { opacity: 1; } 
-    50% { opacity: 0.2; } 
-  }
-
-/* ══════════════ 測試模擬器 (SIMULATOR) ══════════════ 
-     用於模擬行動端 App (如平板) 發送學習測驗結果的情境。
-     開發者可在此測試各種 Payload 組合，包含正常的學習行為數據與具威脅性的 PII。
-  */
-  .sim-form { 
-    display: grid; 
-    gap: 8px; 
-  }
-
-  /* 模擬器欄位配置：使用固定的標籤寬度確保表單整齊對齊 */
-  .sim-row { 
-    display: grid; 
-    grid-template-columns: 100px 1fr; 
-    align-items: center; 
-    gap: 8px; 
-  }
-
-  /* 標籤樣式：提示需輸入的欄位 (例如：Agent Name, Score, Extra Field) */
-  .sim-row label { 
-    font-size: 10px; 
-    color: var(--text2); 
-    text-align: right; 
-  }
-
-  /* 輸入框與下拉選單：
-     模仿開發者工具的設計感，並支援對應《遺忘曲線》文件中的微學習模組選擇。
-  */
-  .sim-row input, .sim-row select { 
-    background: var(--bg); 
-    border: 1px solid var(--border2); 
-    color: var(--text); 
-    padding: 6px 10px; 
-    border-radius: 4px; 
-    font-family: var(--font); 
-    font-size: 11px; 
-    outline: none; 
-  }
-
-  /* 聚焦效果：高亮當前操作欄位 */
-  .sim-row input:focus, .sim-row select:focus { 
-    border-color: var(--cyan); 
-  }
-
-  /* ══════════════ 操作按鈕組 (BUTTONS) ══════════════ */
-  .btn { 
-    padding: 8px 18px; 
-    border: none; 
-    border-radius: 4px; 
-    cursor: pointer; 
-    font-family: var(--font); 
-    font-size: 11px; 
-    letter-spacing: 1px; 
-    transition: all .2s; 
-  }
-
-  /* 主要按鈕：執行標準的去識別化數據提交 (SUBMIT REQUEST) */
-  .btn-primary { 
-    background: var(--blue-dim); 
-    color: var(--blue2); 
-    border: 1px solid var(--blue); 
-  }
-  .btn-primary:hover { background: var(--blue); color: #fff; }
-
-  /* 威脅模擬按鈕：故意注入 PII (如身分證字號) 來測試偵測邏輯的穩健性 */
-  .btn-danger { 
-    background: var(--red-dim); 
-    color: var(--red2); 
-    border: 1px solid var(--red); 
-  }
-  .btn-danger:hover { background: var(--red); color: #fff; }
-
-  /* 系統模擬按鈕：啟動自動化流量測試，展現閘道器的處理效能 */
-  .btn-green { 
-    background: var(--green-dim); 
-    color: var(--green); 
-    border: 1px solid var(--green2); 
-  }
-  .btn-green:hover { background: var(--green2); color: #000; }
-
-  .btn-sm { padding: 4px 10px; font-size: 10px; }
-
-  /* 按鈕列排版：確保在模擬器面板下方能靈活排列多個控制動作 */
-  .btn-row { 
-    display: flex; 
-    gap: 8px; 
-    margin-top: 4px; 
-    flex-wrap: wrap; 
-  }
-
-/* ══════════════ 模擬結果面板 (RESULT PANEL) ══════════════ 
-     呈現模擬請求後的即時伺服器回應。
-     展示 HTTP 狀態碼 (如 200 OK 或 403 Forbidden) 與處理後的 JSON 結構。
-  */
-  .result-panel { 
-    background: var(--bg); 
-    border: 1px solid var(--border); 
-    border-radius: 4px; 
-    padding: 10px; 
-    font-size: 10px; 
-    line-height: 1.8; 
-    margin-top: 8px; 
-    min-height: 60px; 
-  }
-
-  /* ══════════════ 資料庫視圖表格 (DB TABLE) ══════════════ 
-     用於展示專案要求的物理/邏輯隔離資料庫結構。
-     確保「IdentityVault」(存放真名映射) 與「TelemetryLogs」(存放匿名行為數據) 的分離。
-  */
-  .db-table { 
-    width: 100%; 
-    border-collapse: collapse; 
-    font-size: 10px; 
-  }
-
-  /* 表頭樣式：採用與專業資料庫管理工具 (如 DBeaver) 相似的緊湊風格 */
-  .db-table th { 
-    background: var(--panel2); 
-    color: var(--text2); 
-    padding: 6px 10px; 
-    text-align: left; 
-    font-weight: normal; 
-    letter-spacing: 1px; 
-    border-bottom: 1px solid var(--border2); 
-    font-size: 9px; 
-  }
-
-  /* 儲存格內容樣式 */
-  .db-table td { 
-    padding: 5px 10px; 
-    border-bottom: 1px solid var(--border); 
-    color: var(--text); 
-    vertical-align: top; 
-  }
-
-  /* 滑鼠懸停高亮：提升檢視特定紀錄時的易讀性 */
-  .db-table tr:hover td { background: var(--panel2); }
-
-  /* ══════════════ 欄位語意配色 ══════════════ */
-
-  /* 主鍵 (Primary Key)：使用黃色標註重要索引 */
-  .db-table .pk { color: var(--yellow); font-size: 9px; }
-
-  /* 加密欄位 (Encrypted)：用於 IdentityVault 內被加密後的 real_agent_id */
-  .db-table .enc { color: var(--purple); font-size: 9px; }
-
-  /* 權杖欄位 (Token)：用於展示脫敏後的 UUID，強化去識別化的視覺一致性 */
-  .db-table .token { color: var(--cyan); font-family: var(--font); }
-
-  /* 布林值語意：用於 pii_detected_flag，一眼看出是否有違規洩漏 [cite: 31] */
-  .db-table .bool-t { color: var(--green); } /* True: 偵測到洩漏 */
-  .db-table .bool-f { color: var(--text3); } /* False: 安全 */
-
-  /* 表格捲軸容器：確保在小螢幕上資料庫內容不會跑版 */
-  .db-table-wrap { overflow-x: auto; }
-
-  /* 標籤樣式：用於展示數據類別 (如 module_id) 或加密金鑰版本 [cite: 25] */
-  .db-tag { 
-    display: inline-block; 
-    background: var(--bg); 
-    border: 1px solid var(--border2); 
-    border-radius: 3px; 
-    padding: 1px 6px; 
-    font-size: 9px; 
-    color: var(--text2); 
-    margin: 1px; 
-  }
-/* ══════════════ 進度條組件 (PROGRESS BAR) ══════════════ 
-     用於 Dashboard 指標的可視化，如「已去識別化數據占比」或「測驗完成進度」。
-     這有助於量化對抗「遺忘曲線」的專案執行成效 [cite: 45, 66]。
-  */
-  .progress-bar { 
-    background: var(--bg); 
-    border-radius: 3px; 
-    height: 6px; 
-    overflow: hidden; /* 確保內部填充不會超出圓角邊界 */
-    margin-top: 4px; 
-  }
-
-  /* 進度填充層：
-     利用 transition 實作平滑的動畫過度，增加系統數據更新時的動態回饋感。
-  */
-  .progress-fill { 
-    height: 100%; 
-    border-radius: 3px; 
-    transition: width .5s ease; /* 當數據變動時，進度條會平滑滑動 */
-  }
-
-  /* ══════════════ 自定義捲軸 (SCROLLBAR) ══════════════ 
-     針對 Webkit 核心瀏覽器 (Chrome, Edge, Safari) 進行樣式優化，
-     確保在大量 API 日誌或數據庫紀錄滾動時，維持一致的暗色調科技感。
-  */
-  ::-webkit-scrollbar { 
-    width: 4px;  /* 極窄設計，減少對監控介面空間的占用 */
-    height: 4px; 
-  }
-
-  /* 捲軸軌道：保持與背景色一致，避免視覺干擾 */
-  ::-webkit-scrollbar-track { 
-    background: var(--bg); 
-  }
-
-  /* 捲軸滑塊 (Thumb)：
-     使用與邊框一致的顏色，並加入圓角處理，提升操作細節的手感。
-  */
-  ::-webkit-scrollbar-thumb { 
-    background: var(--border2); 
-    border-radius: 2px; 
-  }
-/* ══════════════ 系統架構圖 (SCHEMA DIAGRAM) ══════════════ 
-     視覺化展示數據如何從行動端 App 流經 Secure Gateway，
-     並依據安全性等級路由至相互隔離的資料庫。
-  */
-  .schema-diagram { 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    gap: 0; 
-    padding: 10px 0; 
-  }
-
-  /* 架構方塊基礎樣式：代表系統中的各個模組或資料表 (Table) */
-  .schema-box { 
-    background: var(--bg2); 
-    border: 1px solid var(--border2); 
-    border-radius: 6px; 
-    padding: 10px 14px; 
-    min-width: 140px; 
-  }
-
-  /* 資料表名稱：如 IdentityVault, TelemetryLogs 等 */
-  .schema-box .db-name { 
-    font-size: 10px; 
-    letter-spacing: 1px; 
-    margin-bottom: 6px; 
-    font-weight: bold; 
-    text-transform: uppercase;
-  }
-
-  /* 資料表欄位：呈現資料庫的 Schema 設計 (如 token_id, real_agent_id) */
-  .schema-box .db-field { 
-    font-size: 9px; 
-    color: var(--text2); 
-    padding: 2px 0; 
-    border-bottom: 1px solid var(--border); 
-  }
-  .schema-box .db-field:last-child { border: none; }
-
-  /* 外鍵標記 (Foreign Key)：標示資料表間的關聯，落實數據串接但不洩漏個資 */
-  .schema-box .db-field .fk { color: var(--yellow); }
-
-  /* 架構連接線：引導數據流向的視覺標記 */
-  .schema-arrow { 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    padding: 0 8px; 
-    color: var(--text3); 
-    font-size: 20px; 
-  }
-  .schema-arrow .arrow-label { font-size: 8px; color: var(--text3); letter-spacing: 1px; }
-
-  /* ══════════════ 功能模組配色定義 ══════════════ */
-  
-  /* 閘道器：藍色 - 代表數據攔截與檢查 */
-  .schema-box.gateway { border-color: var(--blue); }
-  .schema-box.gateway .db-name { color: var(--blue); }
-
-  /* 身分金庫：紫色 - 代表最嚴格的加密隔離區 */
-  .schema-box.vault { border-color: var(--purple); }
-  .schema-box.vault .db-name { color: var(--purple); }
-
-  /* 遙測數據：綠色 - 代表已脫敏、可供分析的安全區域 */
-  .schema-box.telemetry { border-color: var(--green); }
-  .schema-box.telemetry .db-name { color: var(--green); }
-
-  /* 審計日誌：黃色 - 代表僅用於合規與追蹤的紀錄區 */
-  .schema-box.audit { border-color: var(--yellow); }
-  .schema-box.audit .db-name { color: var(--yellow); }
-
-  /* ══════════════ 輔助工具類別 (Helper Classes) ══════════════ */
-  .text-green  { color: var(--green); }
-  .text-red    { color: var(--red2); }
-  .text-cyan   { color: var(--cyan); }
-  .text-yellow { color: var(--yellow); }
-  .text-blue2  { color: var(--blue2); }
-  .text-purple { color: var(--purple); }
-  .text-dim    { color: var(--text2); }
-
-  /* 區塊標題：用於視覺化分隔 Dashboard 中的不同監控面板 */
-  .section-title { 
-    font-size: 10px; 
-    color: var(--text2); 
-    letter-spacing: 2px; 
-    margin-bottom: 10px; 
-    padding-bottom: 6px; 
-    border-bottom: 1px solid var(--border); 
-  }
 <!-- ═══════════════ 頁面：儀表板 ═══════════════ -->
 <div class="page active" id="page-dashboard">
 
