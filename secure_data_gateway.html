@@ -5,10 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>L.I.F.E. Pulse — Secure Data Gateway</title>
 <style>
+  /* ══════════════ 系統設計規範 (Design Tokens) ══════════════ 
+     採用 Cyberpunk / Dark Mode 風格，呼叫資安監控儀表板的專業感。
+  */
   :root {
+    /* 背景與面板層次 */
     --bg: #0a0e1a; --bg2: #0f1528; --bg3: #141b30;
     --panel: #1a2240; --panel2: #1e2a4a;
     --border: #2a3a6a; --border2: #3a4a7a;
+    
+    /* 功能性顏色標籤：
+       綠色：代表安全、已脫敏、符合合規 [cite: 7]
+       紅色：代表威脅偵測 (PII Leak)、阻斷 [cite: 6, 12]
+       黃色：代表系統警告、延遲監控
+       藍色/青色：代表閘道器 (Gateway) 處理中、權杖化 (Tokenization) [cite: 7, 16]
+       紫色：代表身分保險箱 (Identity Vault) 受限存取區域 [cite: 18, 22]
+    */
     --green: #00e676; --green2: #00c853; --green-dim: #003d1a;
     --red: #ff1744; --red2: #ff5252; --red-dim: #3d0010;
     --yellow: #ffd740; --yellow-dim: #3d3000;
@@ -16,895 +28,2056 @@
     --cyan: #18ffff; --cyan-dim: #003d3d;
     --purple: #e040fb; --purple-dim: #2d0040;
     --text: #e0e8ff; --text2: #8a9bc0; --text3: #5a6a90;
-    --font: 'Courier New', monospace;
+    --font: 'Courier New', monospace; /* 使用等寬字體模擬終端機質感 */
   }
+
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:var(--bg); color:var(--text); font-family:var(--font); font-size:13px; overflow-x:hidden; }
+  body { 
+    background:var(--bg); 
+    color:var(--text); 
+    font-family:var(--font); 
+    font-size:13px; 
+    overflow-x:hidden; 
+  }
 
-  /* TOP BAR */
-  .topbar { background:var(--bg2); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; align-items:center; justify-content:space-between; }
-  .topbar-left { display:flex; align-items:center; gap:12px; }
-  .logo { color:var(--cyan); font-size:16px; font-weight:bold; letter-spacing:2px; }
-  .logo span { color:var(--green); }
-  .badge { background:var(--green-dim); color:var(--green); border:1px solid var(--green2); border-radius:3px; padding:2px 8px; font-size:10px; }
-  .badge.red { background:var(--red-dim); color:var(--red2); border-color:var(--red); }
-  .topbar-right { display:flex; align-items:center; gap:16px; font-size:11px; color:var(--text2); }
-  .clock { color:var(--cyan); font-size:12px; }
-  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  /* ══════════════ 介面組件樣式 ══════════════ */
 
-  /* NAV TABS */
-  .nav { background:var(--bg2); border-bottom:1px solid var(--border); display:flex; padding:0 20px; gap:4px; }
-  .tab { padding:10px 16px; cursor:pointer; font-size:11px; color:var(--text2); border-bottom:2px solid transparent; transition:all .2s; letter-spacing:1px; }
-  .tab:hover { color:var(--text); }
-  .tab.active { color:var(--cyan); border-bottom-color:var(--cyan); }
+  /* 頂部狀態欄：呈現系統存活狀態與合規性標章 [cite: 5] */
+  .topbar { ... }
 
-  /* LAYOUT */
-  .page { display:none; padding:16px; }
-  .page.active { display:block; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
-  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  /* 指標卡片 (Metric Cards)：
+     展示總攔截數、已脫敏數、已攔截威脅數與系統處理時延 [cite: 31, 32]
+  */
+  .card { ... }
 
-  /* CARDS */
-  .card { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:14px; }
-  .card-title { font-size:10px; color:var(--text2); letter-spacing:2px; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
-  .card-title::before { content:''; width:3px; height:12px; border-radius:2px; }
-  .card-title.green::before { background:var(--green); }
-  .card-title.red::before { background:var(--red); }
-  .card-title.blue::before { background:var(--blue); }
-  .card-title.cyan::before { background:var(--cyan); }
-  .card-title.yellow::before { background:var(--yellow); }
-  .card-title.purple::before { background:var(--purple); }
+  /* 流量視覺化 (Traffic Visualizer)：
+     實作「Dirty JSON」與「Clean JSON」的左右對照，
+     展現 Gateway 如何移除 agent_id 並替換為 token_id [cite: 11, 16]
+  */
+  .traffic-container { ... }
 
-  /* METRIC CARDS */
-  .metric { text-align:center; }
-  .metric .val { font-size:28px; font-weight:bold; line-height:1; }
-  .metric .lbl { font-size:10px; color:var(--text2); margin-top:4px; letter-spacing:1px; }
-  .metric .sub { font-size:10px; margin-top:4px; }
-
-  /* TRAFFIC VISUALIZER */
-  .traffic-container { display:flex; align-items:stretch; gap:0; margin-top:8px; }
-  .traffic-panel { flex:1; border-radius:6px; padding:10px; font-size:11px; position:relative; }
-  .traffic-panel.dirty { background:var(--red-dim); border:1px solid var(--red); }
-  .traffic-panel.clean { background:var(--green-dim); border:1px solid var(--green); }
-  .traffic-panel .panel-label { font-size:9px; letter-spacing:2px; margin-bottom:8px; font-weight:bold; }
-  .traffic-panel.dirty .panel-label { color:var(--red2); }
-  .traffic-panel.clean .panel-label { color:var(--green); }
-  .gateway-center { width:140px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:8px; }
-  .gateway-box { background:var(--blue-dim); border:2px solid var(--blue); border-radius:8px; padding:10px 14px; text-align:center; position:relative; }
-  .gateway-box .gw-label { font-size:9px; color:var(--blue2); letter-spacing:2px; }
-  .gateway-box .gw-icon { font-size:22px; margin:4px 0; }
-  .gateway-status { font-size:9px; color:var(--green); }
-  .arrow-right { color:var(--text2); font-size:18px; }
-  .json-display { font-family:var(--font); font-size:10px; line-height:1.7; white-space:pre-wrap; word-break:break-all; max-height:160px; overflow-y:auto; }
-  .json-key { color:#82b1ff; }
-  .json-val { color:#a5d6a7; }
-  .json-val.pii { color:var(--red2); font-weight:bold; text-decoration:underline; }
-  .json-val.token { color:var(--cyan); }
-
-  /* STREAM LOG */
-  .stream-log { background:var(--bg); border:1px solid var(--border); border-radius:4px; height:200px; overflow-y:auto; padding:8px; font-size:10px; line-height:1.8; }
-  .log-entry { display:flex; gap:8px; align-items:baseline; border-bottom:1px solid var(--border); padding:2px 0; }
-  .log-ts { color:var(--text3); flex-shrink:0; }
-  .log-method { color:var(--blue2); flex-shrink:0; width:34px; }
-  .log-path { color:var(--text2); flex:1; }
-  .log-status { flex-shrink:0; width:36px; text-align:right; }
-  .log-pii { color:var(--red2); font-size:9px; }
-  .s200 { color:var(--green); } .s400 { color:var(--yellow); } .s500 { color:var(--red); }
-
-  /* THREAT ALERT */
-  .alert-box { border-radius:6px; padding:12px; margin-bottom:8px; display:flex; align-items:flex-start; gap:10px; animation:alertIn .3s ease; }
-  @keyframes alertIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:none} }
-  .alert-box.critical { background:var(--red-dim); border:1px solid var(--red); }
-  .alert-box.warning { background:var(--yellow-dim); border:1px solid var(--yellow); }
-  .alert-box.info { background:var(--blue-dim); border:1px solid var(--border2); }
-  .alert-icon { font-size:18px; flex-shrink:0; }
-  .alert-title { font-size:11px; font-weight:bold; margin-bottom:3px; }
-  .alert-box.critical .alert-title { color:var(--red2); }
-  .alert-box.warning .alert-title { color:var(--yellow); }
-  .alert-box.info .alert-title { color:var(--blue2); }
-  .alert-body { font-size:10px; color:var(--text2); line-height:1.5; }
-  .alert-time { font-size:9px; color:var(--text3); margin-top:3px; }
-  .flash { animation:flash 0.5s ease 3; }
-  @keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-  /* SIMULATOR */
-  .sim-form { display:grid; gap:8px; }
-  .sim-row { display:grid; grid-template-columns:100px 1fr; align-items:center; gap:8px; }
-  .sim-row label { font-size:10px; color:var(--text2); text-align:right; }
-  .sim-row input, .sim-row select { background:var(--bg); border:1px solid var(--border2); color:var(--text); padding:6px 10px; border-radius:4px; font-family:var(--font); font-size:11px; outline:none; }
-  .sim-row input:focus, .sim-row select:focus { border-color:var(--cyan); }
-  .btn { padding:8px 18px; border:none; border-radius:4px; cursor:pointer; font-family:var(--font); font-size:11px; letter-spacing:1px; transition:all .2s; }
-  .btn-primary { background:var(--blue-dim); color:var(--blue2); border:1px solid var(--blue); }
-  .btn-primary:hover { background:var(--blue); color:#fff; }
-  .btn-danger { background:var(--red-dim); color:var(--red2); border:1px solid var(--red); }
-  .btn-danger:hover { background:var(--red); color:#fff; }
-  .btn-green { background:var(--green-dim); color:var(--green); border:1px solid var(--green2); }
-  .btn-green:hover { background:var(--green2); color:#000; }
-  .btn-sm { padding:4px 10px; font-size:10px; }
-  .btn-row { display:flex; gap:8px; margin-top:4px; flex-wrap:wrap; }
-
-  /* RESULT PANEL */
-  .result-panel { background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:10px; font-size:10px; line-height:1.8; margin-top:8px; min-height:60px; }
-
-  /* DB TABLE */
-  .db-table { width:100%; border-collapse:collapse; font-size:10px; }
-  .db-table th { background:var(--panel2); color:var(--text2); padding:6px 10px; text-align:left; font-weight:normal; letter-spacing:1px; border-bottom:1px solid var(--border2); font-size:9px; }
-  .db-table td { padding:5px 10px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top; }
-  .db-table tr:hover td { background:var(--panel2); }
-  .db-table .pk { color:var(--yellow); font-size:9px; }
-  .db-table .enc { color:var(--purple); font-size:9px; }
-  .db-table .token { color:var(--cyan); font-family:var(--font); }
-  .db-table .bool-t { color:var(--green); } .db-table .bool-f { color:var(--text3); }
-  .db-table-wrap { overflow-x:auto; }
-  .db-tag { display:inline-block; background:var(--bg); border:1px solid var(--border2); border-radius:3px; padding:1px 6px; font-size:9px; color:var(--text2); margin:1px; }
-
-  /* PROGRESS BAR */
-  .progress-bar { background:var(--bg); border-radius:3px; height:6px; overflow:hidden; margin-top:4px; }
-  .progress-fill { height:100%; border-radius:3px; transition:width .5s ease; }
-
-  /* SCROLLBAR */
-  ::-webkit-scrollbar { width:4px; height:4px; }
-  ::-webkit-scrollbar-track { background:var(--bg); }
-  ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
-
-  /* SCHEMA DIAGRAM */
-  .schema-diagram { display:flex; align-items:center; justify-content:center; gap:0; padding:10px 0; }
-  .schema-box { background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:10px 14px; min-width:140px; }
-  .schema-box .db-name { font-size:10px; letter-spacing:1px; margin-bottom:6px; font-weight:bold; }
-  .schema-box .db-field { font-size:9px; color:var(--text2); padding:2px 0; border-bottom:1px solid var(--border); }
-  .schema-box .db-field:last-child { border:none; }
-  .schema-box .db-field .fk { color:var(--yellow); }
-  .schema-arrow { display:flex; flex-direction:column; align-items:center; padding:0 8px; color:var(--text3); font-size:20px; }
-  .schema-arrow .arrow-label { font-size:8px; color:var(--text3); letter-spacing:1px; }
-  .schema-box.vault { border-color:var(--purple); }
-  .schema-box.vault .db-name { color:var(--purple); }
-  .schema-box.telemetry { border-color:var(--green); }
-  .schema-box.telemetry .db-name { color:var(--green); }
-  .schema-box.audit { border-color:var(--yellow); }
-  .schema-box.audit .db-name { color:var(--yellow); }
-  .schema-box.gateway { border-color:var(--blue); }
-  .schema-box.gateway .db-name { color:var(--blue); }
-
-  .gap8 { gap:8px; }
-  .mt8 { margin-top:8px; }
-  .mt4 { margin-top:4px; }
-  .full { grid-column:1/-1; }
-  .text-green { color:var(--green); }
-  .text-red { color:var(--red2); }
-  .text-cyan { color:var(--cyan); }
-  .text-yellow { color:var(--yellow); }
-  .text-blue2 { color:var(--blue2); }
-  .text-purple { color:var(--purple); }
-  .text-dim { color:var(--text2); }
-  .section-title { font-size:10px; color:var(--text2); letter-spacing:2px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
 </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="topbar-left">
-    <div class="logo">L.I.F.E.<span>PULSE</span></div>
-    <div style="color:var(--text3);font-size:11px;">►</div>
-    <div style="color:var(--text2);font-size:11px;letter-spacing:1px;">SECURE DATA GATEWAY</div>
-    <div class="badge">PDPA COMPLIANT</div>
-    <div class="badge red" id="threatBadge" style="display:none;">⚠ PII THREAT DETECTED</div>
-  </div>
-  <div class="topbar-right">
-    <span><span class="status-dot"></span> GATEWAY ONLINE</span>
-    <span class="clock" id="clock">--:--:--</span>
-  </div>
-</div>
+<script>
+// ══════════════ 核心業務邏輯：安全數據閘道器 ══════════════
 
-<!-- NAV -->
-<div class="nav">
-  <div class="tab active" onclick="showTab('dashboard')">📊 DASHBOARD</div>
-  <div class="tab" onclick="showTab('traffic')">🔀 LIVE TRAFFIC</div>
-  <div class="tab" onclick="showTab('simulator')">⚡ SIMULATOR</div>
-  <div class="tab" onclick="showTab('databases')">🗄 DATABASES</div>
-  <div class="tab" onclick="showTab('schema')">🔗 SCHEMA</div>
-</div>
+/**
+ * 系統狀態管理：模擬資料庫的邏輯分離 [cite: 20, 21]
+ */
+const state = {
+  total: 0, 
+  clean: 0, 
+  threats: 0, 
+  latencies: [],
+  
+  // 核心資料表 [cite: 19]
+  vault: [],     // IdentityVault: 嚴格隔離的身分映射表 [cite: 22]
+  telemetry: [], // TelemetryLogs: 已匿名化的行為分析表 [cite: 33, 34]
+  audit: [],     // ApiTrafficLogs: 閘道器存取審計表 [cite: 27]
+  
+  alerts: []
+};
 
-<!-- ═══════════════ PAGE: DASHBOARD ═══════════════ -->
+/**
+ * PII 偵測模式：根據台灣《個資法》(PDPA) 定義敏感資訊 [cite: 5, 12]
+ */
+const PII_PATTERNS = {
+  nid:   { re:/[A-Z][12]\d{8}/g,          label:'台灣身分證字號' },
+  email: { re:/[^\s]+@[^\s]+\.[^\s]+/g,    label:'電子郵件' },
+  phone: { re:/09\d{8}/g,                  label:'行動電話' }
+};
+
+/**
+ * 中介軟體攔截函數 (The Interceptor) [cite: 14, 15]
+ * 功能：攔截 POST 請求，執行掃描、權杖化與路由分配。
+ */
+function processRequest(payload) {
+  // 1. 執行 PII 掃描 [cite: 12]
+  const piiFound = scanPII(payload);
+  
+  if (piiFound.length > 0) {
+    // 若發現洩漏企圖，紀錄威脅並阻斷 [cite: 31]
+    handleThreat(piiFound);
+    return { blocked: true };
+  }
+
+  // 2. 權杖化處理 (Tokenization) [cite: 16]
+  // 移除真實 agent_id，生成隨機 UUID。
+  const tokenId = crypto.randomUUID();
+  
+  // 3. 數據寫入 (Payload Routing) [cite: 17, 18]
+  // 將真實身分映射寫入 IdentityVault，將匿名數據送往 TelemetryLogs。
+  saveToVault(payload.agent_id, tokenId);
+  saveToTelemetry(payload, tokenId);
+  
+  return { blocked: false, cleanPayload: transform(payload, tokenId) };
+}
+
+/**
+ * 對抗「遺忘曲線」：收集行為數據以訓練 Spaced Repetition 演算法 [cite: 57, 58, 66]
+ * 此處收集 agent 學習、掙扎與反應時間，但完全不帶身分資訊。 [cite: 3, 4]
+ */
+function saveToTelemetry(payload, tokenId) {
+  state.telemetry.push({
+    token_id: tokenId, // 僅存權杖，不存真名 [cite: 34]
+    module_id: payload.module_id,
+    score: payload.score,
+    duration_s: payload.duration_s,
+    timestamp: new Date().toISOString()
+  });
+}
+
+// ... 剩餘 UI 更新與模擬函數
+</script>
+</body>
+</html>
+
+/* ══════════════ 頂部狀態列 (TOP BAR) ══════════════ 
+     此區域提供系統整體的健康狀態監控，包含合規性標章與即時警示。
+  */
+  .topbar { 
+    background: var(--bg2); 
+    border-bottom: 1px solid var(--border); 
+    padding: 10px 20px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+  }
+
+  /* 左側區域：包含系統標誌與合規狀態標籤 (PDPA Compliance) */
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  
+  /* L.I.F.E. Pulse Logo 樣式：展現品牌識別 */
+  .logo { color: var(--cyan); font-size: 16px; font-weight: bold; letter-spacing: 2px; }
+  .logo span { color: var(--green); }
+
+  /* 狀態標籤 (Badge)：用於呈現「PDPA COMPLIANT」等法遵訊息 */
+  .badge { 
+    background: var(--green-dim); 
+    color: var(--green); 
+    border: 1px solid var(--green2); 
+    border-radius: 3px; 
+    padding: 2px 8px; 
+    font-size: 10px; 
+  }
+
+  /* 紅色警告標籤：當 PII 偵測器攔截到異常流量時，動態切換至此樣式 */
+  .badge.red { 
+    background: var(--red-dim); 
+    color: var(--red2); 
+    border-color: var(--red); 
+  }
+
+  /* 右側區域：系統運行指標與即時時鐘 */
+  .topbar-right { display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--text2); }
+  .clock { color: var(--cyan); font-size: 12px; }
+
+  /* 線上狀態指示燈 (Status Dot)：
+     利用動畫效果展現 Gateway 正在運作中 (Live Trace)，
+     確保攔截器 (Interceptor) 處於 Active 狀態
+  */
+  .status-dot { 
+    width: 8px; 
+    height: 8px; 
+    border-radius: 50%; 
+    background: var(--green); 
+    display: inline-block; 
+    box-shadow: 0 0 6px var(--green); 
+    animation: pulse 2s infinite; 
+  }
+
+  /* 呼吸燈動畫：強化即時監控的視覺動態 */
+  @keyframes pulse { 
+    0%, 100% { opacity: 1; } 
+    50% { opacity: 0.4; } 
+  }
+
+/* ══════════════ 導覽分頁 (NAV TABS) ══════════════ 
+     提供多維度的監控視角，實作系統功能的模組化切換。
+  */
+  .nav { 
+    background: var(--bg2); 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    padding: 0 20px; 
+    gap: 4px; 
+  }
+
+  /* 分頁標籤樣式：
+     針對不同的資安角色提供進入點，例如：
+     - DASHBOARD: 高階決策與威脅概覽 
+     - LIVE TRAFFIC: 開發者/運維人員對去識別化過程的即時監控 [cite: 10]
+     - DATABASES: 符合 PDPA 規範的數據存取分離展示 [cite: 20]
+  */
+  .tab { 
+    padding: 10px 16px; 
+    cursor: pointer; 
+    font-size: 11px; 
+    color: var(--text2); 
+    border-bottom: 2px solid transparent; 
+    transition: all .2s; 
+    letter-spacing: 1px; 
+    text-transform: uppercase; /* 強化終端機/專業監控感 */
+  }
+
+  /* 滑鼠懸停效果：提升使用者互動體驗 */
+  .tab:hover { 
+    color: var(--text); 
+  }
+
+  /* 啟用中狀態 (Active)：
+     利用青色 (Cyan) 高亮目前的所在位置，強化導覽直覺。
+  */
+  .tab.active { 
+    color: var(--cyan); 
+    border-bottom-color: var(--cyan); 
+  }
+
+/* ══════════════ 佈局結構 (LAYOUT) ══════════════ 
+     採用 CSS Grid 網格系統，確保多維度監控指標能直觀地在各類螢幕上呈現。
+  */
+
+  /* 分頁控制：實作多分頁介面 (Single Page Application 邏輯) */
+  .page { 
+    display: none;     /* 預設隱藏所有功能分頁 */
+    padding: 16px; 
+  }
+
+  /* 啟動狀態：當 JS 切換分頁時，僅顯示帶有 .active 類別的頁面 */
+  .page.active { 
+    display: block;    /* 顯示目前選擇的監控視角 */
+  }
+
+  /* 二欄式佈局：常用於對比顯示 (例如：Dirty Payload vs. Clean Payload)  */
+  .grid2 { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 12px; 
+  }
+
+  /* 三欄式佈局：常用於細部規則監控 (例如：NID, Email, Phone 的偵測狀態) [cite: 12] */
+  .grid3 { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr 1fr; 
+    gap: 12px; 
+  }
+
+  /* 四欄式佈局：頂部核心指標列 (Metric Row) 
+     用於快速掃描 Requests、Clean Payloads、Threats 與 Latency。
+  */
+  .grid4 { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 12px; 
+  }
+
+/* ══════════════ 資訊卡片組件 (CARDS) ══════════════ 
+     封裝各類監控指標與數據列表，提供統一的視覺邊界與層次感。
+  */
+  .card { 
+    background: var(--panel); 
+    border: 1px solid var(--border); 
+    border-radius: 6px; 
+    padding: 14px; 
+  }
+
+  /* 卡片標題樣式：
+     採用全大寫與寬字距，模仿專業資安監控終端 (Control Center) 的視覺風格。
+  */
+  .card-title { 
+    font-size: 10px; 
+    color: var(--text2); 
+    letter-spacing: 2px; 
+    margin-bottom: 10px; 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    text-transform: uppercase;
+  }
+
+  /* 標題左側的彩色指示條 (Visual Tags)：
+     利用顏色快速分類資訊性質，符合「資訊安全儀表板」的視覺語意 。
+  */
+  .card-title::before { 
+    content: ''; 
+    width: 3px; 
+    height: 12px; 
+    border-radius: 2px; 
+  }
+
+  /* 顏色語意定義：
+     - Green:  代表一般流量、API 正常狀態或 PDPA 合規規則。
+     - Red:    代表威脅告警 (Threat Alerts) 或 PII 偵測攔截 [cite: 12, 31]。
+     - Blue:   代表 API 流量日誌或中介軟體 (Middleware) 處理狀態 [cite: 14]。
+     - Cyan:   代表權杖化 (Tokenization) 邏輯與 Clean JSON 輸出 [cite: 11, 16]。
+     - Yellow: 代表系統延遲、健康度檢查或審計日誌 (Audit Logs)。
+     - Purple: 代表最高安全權限的「身分金庫 (IdentityVault)」[cite: 18, 22]。
+  */
+  .card-title.green::before  { background: var(--green); }
+  .card-title.red::before    { background: var(--red); }
+  .card-title.blue::before   { background: var(--blue); }
+  .card-title.cyan::before   { background: var(--cyan); }
+  .card-title.yellow::before { background: var(--yellow); }
+  .card-title.purple::before { background: var(--purple); }
+
+/* ══════════════ 核心指標卡片 (METRIC CARDS) ══════════════ 
+     用於呈現高層級的安全與效能數據，如總處理量、阻斷威脅數與平均時延。
+  */
+  .metric { 
+    text-align: center; /* 置中對齊，強化數據的視覺衝擊力 */
+  }
+
+  /* 指標數值 (Value)：
+     使用 28px 大字重，確保資安官能第一時間掌握核心數據 (如已脫敏的 Clean Payloads 數量)。
+  */
+  .metric .val { 
+    font-size: 28px; 
+    font-weight: bold; 
+    line-height: 1; 
+  }
+
+  /* 指標標籤 (Label)：
+     描述數據內容 (例如：TOTAL INTERCEPTED)，協助理解指標含義。
+  */
+  .metric .lbl { 
+    font-size: 10px; 
+    color: var(--text2); 
+    margin-top: 4px; 
+    letter-spacing: 1px; 
+    text-transform: uppercase;
+  }
+
+  /* 次要補充資訊 (Subtext)：
+     可用於呈現成長率或百分比，輔助判斷數據趨勢。
+  */
+  .metric .sub { 
+    font-size: 10px; 
+    margin-top: 4px; 
+  }
+
+/* ══════════════ 流量視覺化監控 (TRAFFIC VISUALIZER) ══════════════ 
+     實作「數位邊境檢查站」的視覺化，展示數據脫敏 (Data Masking) 的處理過程。
+  */
+  .traffic-container { 
+    display: flex; 
+    align-items: stretch; 
+    gap: 0; 
+    margin-top: 8px; 
+  }
+
+  /* 數據面板基礎樣式 */
+  .traffic-panel { 
+    flex: 1; 
+    border-radius: 6px; 
+    padding: 10px; 
+    font-size: 11px; 
+    position: relative; 
+  }
+
+  /* 左側面板：原始數據 (Dirty Payload) 
+     背景使用暗紅色，警示此區域包含敏感的 PII (如姓名或員工 ID)。
+  */
+  .traffic-panel.dirty { 
+    background: var(--red-dim); 
+    border: 1px solid var(--red); 
+  }
+
+  /* 右側面板：脫敏數據 (Clean Payload) 
+     背景使用暗綠色，代表數據已完成權杖化，符合資安傳輸標準。
+  */
+  .traffic-panel.clean { 
+    background: var(--green-dim); 
+    border: 1px solid var(--green); 
+  }
+
+  /* 面板標籤樣式 (例如：INCOMING / OUTGOING) */
+  .traffic-panel .panel-label { 
+    font-size: 9px; 
+    letter-spacing: 2px; 
+    margin-bottom: 8px; 
+    font-weight: bold; 
+    text-transform: uppercase;
+  }
+
+  .traffic-panel.dirty .panel-label { color: var(--red2); }
+  .traffic-panel.clean .panel-label { color: var(--green); }
+
+  /* 中央閘道器區域 (Gateway Center)：
+     代表介於前端與資料庫之間的中介軟體攔截器 (Interceptor Middleware)。
+  */
+  .gateway-center { 
+    width: 140px; 
+    flex-shrink: 0; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    padding: 8px; 
+  }
+
+  /* 閘道器核心盒子 */
+  .gateway-box { 
+    background: var(--blue-dim); 
+    border: 2px solid var(--blue); 
+    border-radius: 8px; 
+    padding: 10px 14px; 
+    text-align: center; 
+    position: relative; 
+  }
+
+  .gateway-box .gw-label { font-size: 9px; color: var(--blue2); letter-spacing: 2px; }
+  .gateway-box .gw-icon { font-size: 22px; margin: 4px 0; }
+  .gateway-status { font-size: 9px; color: var(--green); }
+  .arrow-right { color: var(--text2); font-size: 18px; }
+
+  /* JSON 數據呈現區域：模仿 IDE 程式碼語法高亮 */
+  .json-display { 
+    font-family: var(--font); 
+    font-size: 10px; 
+    line-height: 1.7; 
+    white-space: pre-wrap; 
+    word-break: break-all; 
+    max-height: 160px; 
+    overflow-y:
+
+/* ══════════════ 即時串流日誌 (STREAM LOG) ══════════════ 
+     呈現所有通過 Gateway 的 API 流量審計紀錄 (Audit Trail)，
+     協助追蹤「L.I.F.E. Pulse」數據傳輸的安全性與狀態 [cite: 3, 27]。
+  */
+  .stream-log { 
+    background: var(--bg); 
+    border: 1px solid var(--border); 
+    border-radius: 4px; 
+    height: 200px; 
+    overflow-y: auto;      /* 啟用垂直捲軸以應對高頻率流量 */
+    padding: 8px; 
+    font-size: 10px; 
+    line-height: 1.8; 
+  }
+
+  /* 單筆日誌分列設定：使用 Flexbox 確保各項指標對齊 */
+  .log-entry { 
+    display: flex; 
+    gap: 8px; 
+    align-items: baseline; 
+    border-bottom: 1px solid var(--border); 
+    padding: 2px 0; 
+  }
+
+  /* 時間戳記 (Timestamp)：精確記錄每次 API 請求時間 */
+  .log-ts { color: var(--text3); flex-shrink: 0; }
+
+  /* HTTP 方法 (如 POST)：標示請求動作類型 [cite: 15] */
+  .log-method { color: var(--blue2); flex-shrink: 0; width: 34px; }
+
+  /* 存取路徑 (Path)：例如 /api/v1/submit_sprint [cite: 29] */
+  .log-path { color: var(--text2); flex: 1; }
+
+  /* 回應狀態碼 (Status)：靠右對齊，便於快速掃描是否有錯誤發生 */
+  .log-status { flex-shrink: 0; width: 36px; text-align: right; }
+
+  /* PII 威脅標記：若偵測到洩漏風險，顯示紅色的 PII 警示字樣 [cite: 31] */
+  .log-pii { color: var(--red2); font-size: 9px; font-weight: bold; }
+
+  /* 狀態碼語意配色：
+     - .s200 (Success): 綠色，代表成功去識別化並安全儲存 [cite: 34]
+     - .s400 (Client Error): 黃色，代表請求格式錯誤
+     - .s500 (Server Error): 紅色，代表系統異常
+  */
+  .s200 { color: var(--green); } 
+  .s400 { color: var(--yellow); } 
+  .s500 { color: var(--red); }
+
+/* ══════════════ 威脅告警系統 (THREAT ALERT) ══════════════ 
+     實作「數位邊界檢查站」的即時通知機制，當偵測到敏感資訊 (PII) 企圖越權存取時，
+     系統將會根據威脅等級 (Critical/Warning/Info) 觸發此區域的顯示 。
+  */
+  .alert-box { 
+    border-radius: 6px; 
+    padding: 12px; 
+    margin-bottom: 8px; 
+    display: flex; 
+    align-items: flex-start; 
+    gap: 10px; 
+    /* 進場動畫：從左方滑入並漸顯，確保資安人員能立即注意到新的威脅事件 */
+    animation: alertIn .3s ease; 
+  }
+
+  @keyframes alertIn { 
+    from { opacity: 0; transform: translateX(-10px); } 
+    to { opacity: 1; transform: none; } 
+  }
+
+  /* 嚴重威脅：偵測到 PII (如台灣身分證、手機) 直接暴露於 Payload 中 
+     背景與邊框使用深紅色調，對應 PDPA 合規中最高等級的攔截警示 [cite: 5, 12]。
+  */
+  .alert-box.critical { 
+    background: var(--red-dim); 
+    border: 1px solid var(--red); 
+  }
+
+  /* 一般警告：偵測到非標準格式數據或潛在的個資外洩風險 */
+  .alert-box.warning { 
+    background: var(--yellow-dim); 
+    border: 1px solid var(--yellow); 
+  }
+
+  /* 系統資訊：用於紀錄正常的 Gateway 狀態更新或 API 通訊資訊 */
+  .alert-box.info { 
+    background: var(--blue-dim); 
+    border: 1px solid var(--border2); 
+  }
+
+  /* 圖示與標題：透過顏色強化視覺語意層次 */
+  .alert-icon { font-size: 18px; flex-shrink: 0; }
+  .alert-title { font-size: 11px; font-weight: bold; margin-bottom: 3px; }
+
+  /* 不同層級標題的特定顏色設定 */
+  .alert-box.critical .alert-title { color: var(--red2); }
+  .alert-box.warning .alert-title { color: var(--yellow); }
+  .alert-box.info .alert-title { color: var(--blue2); }
+
+  /* 告警內容與發生時間：呈現具體的威脅細節與時間戳記 */
+  .alert-body { font-size: 10px; color: var(--text2); line-height: 1.5; }
+  .alert-time { font-size: 9px; color: var(--text3); margin-top: 3px; }
+
+  /* 閃爍動畫：當偵測到嚴重洩漏 (如身分證字號) 時觸發，強化警示效果  */
+  .flash { animation: flash 0.5s ease 3; }
+  
+  @keyframes flash { 
+    0%, 100% { opacity: 1; } 
+    50% { opacity: 0.2; } 
+  }
+
+/* ══════════════ 測試模擬器 (SIMULATOR) ══════════════ 
+     用於模擬行動端 App (如平板) 發送學習測驗結果的情境。
+     開發者可在此測試各種 Payload 組合，包含正常的學習行為數據與具威脅性的 PII。
+  */
+  .sim-form { 
+    display: grid; 
+    gap: 8px; 
+  }
+
+  /* 模擬器欄位配置：使用固定的標籤寬度確保表單整齊對齊 */
+  .sim-row { 
+    display: grid; 
+    grid-template-columns: 100px 1fr; 
+    align-items: center; 
+    gap: 8px; 
+  }
+
+  /* 標籤樣式：提示需輸入的欄位 (例如：Agent Name, Score, Extra Field) */
+  .sim-row label { 
+    font-size: 10px; 
+    color: var(--text2); 
+    text-align: right; 
+  }
+
+  /* 輸入框與下拉選單：
+     模仿開發者工具的設計感，並支援對應《遺忘曲線》文件中的微學習模組選擇。
+  */
+  .sim-row input, .sim-row select { 
+    background: var(--bg); 
+    border: 1px solid var(--border2); 
+    color: var(--text); 
+    padding: 6px 10px; 
+    border-radius: 4px; 
+    font-family: var(--font); 
+    font-size: 11px; 
+    outline: none; 
+  }
+
+  /* 聚焦效果：高亮當前操作欄位 */
+  .sim-row input:focus, .sim-row select:focus { 
+    border-color: var(--cyan); 
+  }
+
+  /* ══════════════ 操作按鈕組 (BUTTONS) ══════════════ */
+  .btn { 
+    padding: 8px 18px; 
+    border: none; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-family: var(--font); 
+    font-size: 11px; 
+    letter-spacing: 1px; 
+    transition: all .2s; 
+  }
+
+  /* 主要按鈕：執行標準的去識別化數據提交 (SUBMIT REQUEST) */
+  .btn-primary { 
+    background: var(--blue-dim); 
+    color: var(--blue2); 
+    border: 1px solid var(--blue); 
+  }
+  .btn-primary:hover { background: var(--blue); color: #fff; }
+
+  /* 威脅模擬按鈕：故意注入 PII (如身分證字號) 來測試偵測邏輯的穩健性 */
+  .btn-danger { 
+    background: var(--red-dim); 
+    color: var(--red2); 
+    border: 1px solid var(--red); 
+  }
+  .btn-danger:hover { background: var(--red); color: #fff; }
+
+  /* 系統模擬按鈕：啟動自動化流量測試，展現閘道器的處理效能 */
+  .btn-green { 
+    background: var(--green-dim); 
+    color: var(--green); 
+    border: 1px solid var(--green2); 
+  }
+  .btn-green:hover { background: var(--green2); color: #000; }
+
+  .btn-sm { padding: 4px 10px; font-size: 10px; }
+
+  /* 按鈕列排版：確保在模擬器面板下方能靈活排列多個控制動作 */
+  .btn-row { 
+    display: flex; 
+    gap: 8px; 
+    margin-top: 4px; 
+    flex-wrap: wrap; 
+  }
+
+/* ══════════════ 模擬結果面板 (RESULT PANEL) ══════════════ 
+     呈現模擬請求後的即時伺服器回應。
+     展示 HTTP 狀態碼 (如 200 OK 或 403 Forbidden) 與處理後的 JSON 結構。
+  */
+  .result-panel { 
+    background: var(--bg); 
+    border: 1px solid var(--border); 
+    border-radius: 4px; 
+    padding: 10px; 
+    font-size: 10px; 
+    line-height: 1.8; 
+    margin-top: 8px; 
+    min-height: 60px; 
+  }
+
+  /* ══════════════ 資料庫視圖表格 (DB TABLE) ══════════════ 
+     用於展示專案要求的物理/邏輯隔離資料庫結構。
+     確保「IdentityVault」(存放真名映射) 與「TelemetryLogs」(存放匿名行為數據) 的分離。
+  */
+  .db-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    font-size: 10px; 
+  }
+
+  /* 表頭樣式：採用與專業資料庫管理工具 (如 DBeaver) 相似的緊湊風格 */
+  .db-table th { 
+    background: var(--panel2); 
+    color: var(--text2); 
+    padding: 6px 10px; 
+    text-align: left; 
+    font-weight: normal; 
+    letter-spacing: 1px; 
+    border-bottom: 1px solid var(--border2); 
+    font-size: 9px; 
+  }
+
+  /* 儲存格內容樣式 */
+  .db-table td { 
+    padding: 5px 10px; 
+    border-bottom: 1px solid var(--border); 
+    color: var(--text); 
+    vertical-align: top; 
+  }
+
+  /* 滑鼠懸停高亮：提升檢視特定紀錄時的易讀性 */
+  .db-table tr:hover td { background: var(--panel2); }
+
+  /* ══════════════ 欄位語意配色 ══════════════ */
+
+  /* 主鍵 (Primary Key)：使用黃色標註重要索引 */
+  .db-table .pk { color: var(--yellow); font-size: 9px; }
+
+  /* 加密欄位 (Encrypted)：用於 IdentityVault 內被加密後的 real_agent_id */
+  .db-table .enc { color: var(--purple); font-size: 9px; }
+
+  /* 權杖欄位 (Token)：用於展示脫敏後的 UUID，強化去識別化的視覺一致性 */
+  .db-table .token { color: var(--cyan); font-family: var(--font); }
+
+  /* 布林值語意：用於 pii_detected_flag，一眼看出是否有違規洩漏 [cite: 31] */
+  .db-table .bool-t { color: var(--green); } /* True: 偵測到洩漏 */
+  .db-table .bool-f { color: var(--text3); } /* False: 安全 */
+
+  /* 表格捲軸容器：確保在小螢幕上資料庫內容不會跑版 */
+  .db-table-wrap { overflow-x: auto; }
+
+  /* 標籤樣式：用於展示數據類別 (如 module_id) 或加密金鑰版本 [cite: 25] */
+  .db-tag { 
+    display: inline-block; 
+    background: var(--bg); 
+    border: 1px solid var(--border2); 
+    border-radius: 3px; 
+    padding: 1px 6px; 
+    font-size: 9px; 
+    color: var(--text2); 
+    margin: 1px; 
+  }
+/* ══════════════ 進度條組件 (PROGRESS BAR) ══════════════ 
+     用於 Dashboard 指標的可視化，如「已去識別化數據占比」或「測驗完成進度」。
+     這有助於量化對抗「遺忘曲線」的專案執行成效 [cite: 45, 66]。
+  */
+  .progress-bar { 
+    background: var(--bg); 
+    border-radius: 3px; 
+    height: 6px; 
+    overflow: hidden; /* 確保內部填充不會超出圓角邊界 */
+    margin-top: 4px; 
+  }
+
+  /* 進度填充層：
+     利用 transition 實作平滑的動畫過度，增加系統數據更新時的動態回饋感。
+  */
+  .progress-fill { 
+    height: 100%; 
+    border-radius: 3px; 
+    transition: width .5s ease; /* 當數據變動時，進度條會平滑滑動 */
+  }
+
+  /* ══════════════ 自定義捲軸 (SCROLLBAR) ══════════════ 
+     針對 Webkit 核心瀏覽器 (Chrome, Edge, Safari) 進行樣式優化，
+     確保在大量 API 日誌或數據庫紀錄滾動時，維持一致的暗色調科技感。
+  */
+  ::-webkit-scrollbar { 
+    width: 4px;  /* 極窄設計，減少對監控介面空間的占用 */
+    height: 4px; 
+  }
+
+  /* 捲軸軌道：保持與背景色一致，避免視覺干擾 */
+  ::-webkit-scrollbar-track { 
+    background: var(--bg); 
+  }
+
+  /* 捲軸滑塊 (Thumb)：
+     使用與邊框一致的顏色，並加入圓角處理，提升操作細節的手感。
+  */
+  ::-webkit-scrollbar-thumb { 
+    background: var(--border2); 
+    border-radius: 2px; 
+  }
+/* ══════════════ 系統架構圖 (SCHEMA DIAGRAM) ══════════════ 
+     視覺化展示數據如何從行動端 App 流經 Secure Gateway，
+     並依據安全性等級路由至相互隔離的資料庫。
+  */
+  .schema-diagram { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 0; 
+    padding: 10px 0; 
+  }
+
+  /* 架構方塊基礎樣式：代表系統中的各個模組或資料表 (Table) */
+  .schema-box { 
+    background: var(--bg2); 
+    border: 1px solid var(--border2); 
+    border-radius: 6px; 
+    padding: 10px 14px; 
+    min-width: 140px; 
+  }
+
+  /* 資料表名稱：如 IdentityVault, TelemetryLogs 等 */
+  .schema-box .db-name { 
+    font-size: 10px; 
+    letter-spacing: 1px; 
+    margin-bottom: 6px; 
+    font-weight: bold; 
+    text-transform: uppercase;
+  }
+
+  /* 資料表欄位：呈現資料庫的 Schema 設計 (如 token_id, real_agent_id) */
+  .schema-box .db-field { 
+    font-size: 9px; 
+    color: var(--text2); 
+    padding: 2px 0; 
+    border-bottom: 1px solid var(--border); 
+  }
+  .schema-box .db-field:last-child { border: none; }
+
+  /* 外鍵標記 (Foreign Key)：標示資料表間的關聯，落實數據串接但不洩漏個資 */
+  .schema-box .db-field .fk { color: var(--yellow); }
+
+  /* 架構連接線：引導數據流向的視覺標記 */
+  .schema-arrow { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    padding: 0 8px; 
+    color: var(--text3); 
+    font-size: 20px; 
+  }
+  .schema-arrow .arrow-label { font-size: 8px; color: var(--text3); letter-spacing: 1px; }
+
+  /* ══════════════ 功能模組配色定義 ══════════════ */
+  
+  /* 閘道器：藍色 - 代表數據攔截與檢查 */
+  .schema-box.gateway { border-color: var(--blue); }
+  .schema-box.gateway .db-name { color: var(--blue); }
+
+  /* 身分金庫：紫色 - 代表最嚴格的加密隔離區 */
+  .schema-box.vault { border-color: var(--purple); }
+  .schema-box.vault .db-name { color: var(--purple); }
+
+  /* 遙測數據：綠色 - 代表已脫敏、可供分析的安全區域 */
+  .schema-box.telemetry { border-color: var(--green); }
+  .schema-box.telemetry .db-name { color: var(--green); }
+
+  /* 審計日誌：黃色 - 代表僅用於合規與追蹤的紀錄區 */
+  .schema-box.audit { border-color: var(--yellow); }
+  .schema-box.audit .db-name { color: var(--yellow); }
+
+  /* ══════════════ 輔助工具類別 (Helper Classes) ══════════════ */
+  .text-green  { color: var(--green); }
+  .text-red    { color: var(--red2); }
+  .text-cyan   { color: var(--cyan); }
+  .text-yellow { color: var(--yellow); }
+  .text-blue2  { color: var(--blue2); }
+  .text-purple { color: var(--purple); }
+  .text-dim    { color: var(--text2); }
+
+  /* 區塊標題：用於視覺化分隔 Dashboard 中的不同監控面板 */
+  .section-title { 
+    font-size: 10px; 
+    color: var(--text2); 
+    letter-spacing: 2px; 
+    margin-bottom: 10px; 
+    padding-bottom: 6px; 
+    border-bottom: 1px solid var(--border); 
+  }
+<!-- ═══════════════ 頁面：儀表板 ═══════════════ -->
 <div class="page active" id="page-dashboard">
+
+  <!-- ── 頂部四格指標卡片區 ── -->
   <div class="grid4" style="margin-bottom:12px;">
+
+    <!-- 指標卡片：總攔截請求數 -->
     <div class="card metric">
       <div class="card-title green">REQUESTS</div>
       <div class="val text-green" id="m-total">0</div>
       <div class="lbl">TOTAL INTERCEPTED</div>
+      <!-- 進度條：固定 100% 寬度，顯示綠色 -->
       <div class="progress-bar mt4"><div class="progress-fill" style="background:var(--green);width:100%"></div></div>
     </div>
+
+    <!-- 指標卡片：已完成代碼化的乾淨請求數 -->
     <div class="card metric">
       <div class="card-title cyan">TOKENIZED</div>
       <div class="val text-cyan" id="m-clean">0</div>
       <div class="lbl">CLEAN PAYLOADS</div>
+      <!-- 進度條：寬度由 JS 動態更新 (id="cleanBar") -->
       <div class="progress-bar mt4"><div class="progress-fill" id="cleanBar" style="background:var(--cyan);width:0%"></div></div>
     </div>
+
+    <!-- 指標卡片：偵測並封鎖的 PII 威脅數 -->
     <div class="card metric">
       <div class="card-title red">THREATS</div>
       <div class="val text-red" id="m-threats">0</div>
       <div class="lbl">PII DETECTED & BLOCKED</div>
+      <!-- 進度條：寬度由 JS 動態更新 (id="threatBar") -->
       <div class="progress-bar mt4"><div class="progress-fill" id="threatBar" style="background:var(--red);width:0%"></div></div>
     </div>
+
+    <!-- 指標卡片：平均處理延遲（毫秒） -->
     <div class="card metric">
       <div class="card-title yellow">AVG LATENCY</div>
       <div class="val text-yellow" id="m-latency">0<span style="font-size:14px">ms</span></div>
       <div class="lbl">PROCESSING TIME</div>
+      <!-- 進度條：固定 60% 作為視覺參考 -->
       <div class="progress-bar mt4"><div class="progress-fill" style="background:var(--yellow);width:60%"></div></div>
     </div>
+
   </div>
 
+  <!-- ── 中間兩欄：威脅警報 ＋ API 流量串流 ── -->
   <div class="grid2" style="margin-bottom:12px;">
+
+    <!-- 左欄：即時威脅警報列表（可捲動） -->
     <div class="card">
       <div class="card-title red">🚨 THREAT ALERTS</div>
       <div id="alertContainer" style="max-height:200px;overflow-y:auto;">
+        <!-- 預設提示文字；有威脅時由 JS 動態插入警報項目 -->
         <div style="color:var(--text3);font-size:11px;text-align:center;padding:20px;">No threats detected</div>
       </div>
     </div>
+
+    <!-- 右欄：最近 API 流量串流紀錄 -->
     <div class="card">
       <div class="card-title blue">📡 RECENT API TRAFFIC</div>
       <div class="stream-log" id="streamLog">
+        <!-- 預設提示文字；有流量時由 JS 動態寫入 -->
         <div style="color:var(--text3);">Waiting for traffic...</div>
       </div>
     </div>
+
   </div>
 
+  <!-- ── 底部三欄：PII 偵測統計、資料庫隔離狀態、閘道健康狀態 ── -->
   <div class="grid3">
+
+    <!-- 左欄：各類 PII 樣式的偵測封鎖計數 -->
     <div class="card">
       <div class="card-title green">PII PATTERN DETECTION</div>
       <div style="display:grid;gap:6px;margin-top:4px;">
+
+        <!-- 台灣身分證字號（格式：A123456789） -->
         <div style="display:flex;justify-content:space-between;font-size:10px;">
           <span class="text-dim">🪪 Taiwan National ID (A123456789)</span>
           <span class="text-red" id="cnt-nid">0 blocked</span>
         </div>
+
+        <!-- 電子郵件地址 -->
         <div style="display:flex;justify-content:space-between;font-size:10px;">
           <span class="text-dim">📧 Email Address</span>
           <span class="text-red" id="cnt-email">0 blocked</span>
         </div>
+
+        <!-- 台灣手機號碼（09 開頭） -->
         <div style="display:flex;justify-content:space-between;font-size:10px;">
           <span class="text-dim">📱 Phone Number (09xx)</span>
           <span class="text-red" id="cnt-phone">0 blocked</span>
         </div>
+
+        <!-- 客服人員姓名 / 工號（代碼化而非封鎖） -->
         <div style="display:flex;justify-content:space-between;font-size:10px;">
           <span class="text-dim">👤 Agent Name / ID</span>
           <span class="text-cyan" id="cnt-name">0 tokenized</span>
         </div>
+
       </div>
     </div>
+
+    <!-- 中欄：各資料庫的隔離與匿名化狀態 -->
     <div class="card">
       <div class="card-title cyan">DATABASE SEPARATION STATUS</div>
       <div style="display:grid;gap:6px;margin-top:4px;font-size:10px;">
+
+        <!-- 身分識別資料庫：完全隔離 -->
         <div style="display:flex;justify-content:space-between;">
           <span>🔐 IdentityVault</span><span class="text-purple">ISOLATED ✓</span>
         </div>
+
+        <!-- 遙測資料庫：匿名化處理 -->
         <div style="display:flex;justify-content:space-between;">
           <span>📊 TelemetryDB</span><span class="text-green">ANONYMOUS ✓</span>
         </div>
+
+        <!-- API 流量日誌：僅供稽核存取 -->
         <div style="display:flex;justify-content:space-between;">
           <span>📋 ApiTrafficLogs</span><span class="text-yellow">AUDIT ONLY ✓</span>
         </div>
+
+        <!-- 加密金鑰分離：強制執行中 -->
         <div style="display:flex;justify-content:space-between;">
           <span>🔑 Key Separation</span><span class="text-green">ENFORCED ✓</span>
         </div>
+
       </div>
     </div>
+
+    <!-- 右欄：各閘道元件的運行健康狀態 -->
     <div class="card">
       <div class="card-title yellow">GATEWAY HEALTH</div>
       <div style="display:grid;gap:6px;margin-top:4px;font-size:10px;">
+
+        <!-- 攔截器：運行中 -->
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span>Interceptor</span>
           <span class="text-green">● ACTIVE</span>
         </div>
+
+        <!-- PII 掃描器：運行中 -->
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span>PII Scanner</span>
           <span class="text-green">● ACTIVE</span>
         </div>
+
+        <!-- UUID 產生器：運行中 -->
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span>UUID Generator</span>
           <span class="text-green">● ACTIVE</span>
         </div>
+
+        <!-- 封包路由器：運行中 -->
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span>Payload Router</span>
           <span class="text-green">● ACTIVE</span>
         </div>
+
       </div>
     </div>
+
   </div>
 </div>
-
-<!-- ═══════════════ PAGE: LIVE TRAFFIC ═══════════════ -->
+<!-- ═══════════════ 頁面：即時流量 ═══════════════ -->
 <div class="page" id="page-traffic">
+
+  <!-- ── 上方卡片：即時封包轉換視覺化區域 ── -->
   <div class="card" style="margin-bottom:12px;">
     <div class="card-title cyan">REAL-TIME PAYLOAD TRANSFORMATION</div>
+
+    <!-- 三欄式流量展示容器：左（原始）→ 中（閘道處理）→ 右（乾淨） -->
     <div class="traffic-container">
+
+      <!-- 左欄：入站原始封包（含未遮蔽的 PII 資料） -->
       <div class="traffic-panel dirty">
         <div class="panel-label">⬇ INCOMING — DIRTY PAYLOAD (PII EXPOSED)</div>
+        <!-- JSON 顯示區：由 JS 動態注入原始請求內容 -->
         <div class="json-display" id="dirtyJson">
           <span class="text-dim">Waiting for request...</span>
         </div>
       </div>
+
+      <!-- 中欄：閘道處理區（攔截 → 掃描 → 代碼化） -->
       <div class="gateway-center">
+        <!-- 流向箭頭（入站側） -->
         <div class="arrow-right">→</div>
+
+        <!-- 閘道狀態方塊：顯示目前處理狀態（READY / SCANNING / BLOCKED…） -->
         <div class="gateway-box">
           <div class="gw-label">GATEWAY</div>
           <div class="gw-icon">🛡</div>
+          <!-- 狀態文字由 JS 動態更新 -->
           <div class="gateway-status" id="gwStatus">READY</div>
         </div>
+
+        <!-- 流向箭頭（出站側） -->
         <div class="arrow-right">→</div>
+
+        <!-- 處理步驟提示文字（掃描中、代碼化中等），由 JS 動態寫入 -->
         <div id="gwProcess" style="font-size:9px;color:var(--text3);text-align:center;min-height:14px;"></div>
       </div>
+
+      <!-- 右欄：出站乾淨封包（PII 已替換為 UUID Token） -->
       <div class="traffic-panel clean">
         <div class="panel-label">⬆ OUTGOING — CLEAN PAYLOAD (TOKENIZED)</div>
+        <!-- JSON 顯示區：由 JS 動態注入代碼化後的輸出內容 -->
         <div class="json-display" id="cleanJson">
           <span class="text-dim">Waiting for output...</span>
         </div>
       </div>
+
     </div>
+
+    <!-- 操作按鈕列 -->
     <div class="btn-row" style="margin-top:10px;">
+      <!-- 手動觸發一次模擬請求 -->
       <button class="btn btn-primary" onclick="simulateTraffic()">▶ SIMULATE REQUEST</button>
+      <!-- 模擬含 PII 的惡意 / 洩漏請求，觸發封鎖流程 -->
       <button class="btn btn-danger" onclick="simulatePIIAttack()">☠ SIMULATE PII LEAK</button>
+      <!-- 啟動自動模擬，每 5 秒發送一次請求 -->
       <button class="btn btn-green" onclick="autoSimulate()">🔄 AUTO SIMULATE (5s)</button>
+      <!-- 停止自動模擬 -->
       <button class="btn btn-sm" onclick="stopAuto()" style="background:var(--bg);border:1px solid var(--border2);color:var(--text2);">■ STOP</button>
     </div>
+
   </div>
 
+  <!-- ── 下方卡片：API 流量完整日誌（可捲動串流） ── -->
   <div class="card">
     <div class="card-title blue">📡 API TRAFFIC LOG</div>
+    <!-- 串流日誌容器，固定高度 240px，超出時捲動；由 JS 即時追加日誌條目 -->
     <div class="stream-log" id="trafficLog" style="height:240px;">
       <div style="color:var(--text3);">Waiting for traffic...</div>
     </div>
   </div>
+
 </div>
 
-<!-- ═══════════════ PAGE: SIMULATOR ═══════════════ -->
+<!-- ═══════════════ 頁面：模擬器 ═══════════════ -->
 <div class="page" id="page-simulator">
+
+  <!-- 雙欄佈局：左欄為請求表單，右欄為代碼化流程說明 -->
   <div class="grid2">
+
+    <!-- ── 左欄：測驗結果提交表單 ── -->
     <div class="card">
       <div class="card-title cyan">SUBMIT QUIZ RESULT — POST /api/v1/submit_sprint</div>
+
+      <!-- 表單欄位區 -->
       <div class="sim-form">
+
+        <!-- 客服人員工號（含 PII，送出前將被代碼化） -->
         <div class="sim-row"><label>Agent ID</label><input id="s-aid" value="EMP-0042" placeholder="e.g. EMP-0042"></div>
+
+        <!-- 客服人員姓名（含 PII，送出前將被代碼化） -->
         <div class="sim-row"><label>Agent Name</label><input id="s-name" value="林小明" placeholder="Agent name"></div>
+
+        <!-- 訓練模組選單 -->
         <div class="sim-row"><label>Module</label><select id="s-module">
-          <option>compliance_quiz_01</option><option>investment_linked_regulation</option>
-          <option>term_life_basics</option><option>cross_sell_framework</option>
+          <option>compliance_quiz_01</option>          <!-- 法規遵循測驗 -->
+          <option>investment_linked_regulation</option> <!-- 投資型保單法規 -->
+          <option>term_life_basics</option>             <!-- 定期壽險基礎 -->
+          <option>cross_sell_framework</option>         <!-- 交叉銷售框架 -->
         </select></div>
+
+        <!-- 測驗分數（0–100%） -->
         <div class="sim-row"><label>Score (%)</label><input id="s-score" value="78" type="number" min="0" max="100"></div>
+
+        <!-- 作答時間（秒） -->
         <div class="sim-row"><label>Duration(s)</label><input id="s-dur" value="420" type="number"></div>
+
+        <!-- 嘗試次數 -->
         <div class="sim-row"><label>Attempts</label><input id="s-att" value="1" type="number" min="1"></div>
+
+        <!-- 額外欄位：用於手動輸入 PII 測試資料（如手機號碼、身分證字號），
+             閘道應偵測並封鎖此欄位中的敏感資訊 -->
         <div class="sim-row"><label>Extra Field</label><input id="s-extra" value="" placeholder="Try: 0912345678 or A123456789"></div>
+
       </div>
+
+      <!-- 操作按鈕列 -->
       <div class="btn-row" style="margin-top:10px;">
+        <!-- 送出表單，觸發閘道攔截與代碼化流程 -->
         <button class="btn btn-primary" onclick="submitReq()">📤 SUBMIT REQUEST</button>
+        <!-- 自動填入 PII 測試資料並送出，驗證封鎖機制 -->
         <button class="btn btn-danger" onclick="injectPII()">☠ INJECT PII TEST</button>
+        <!-- 清除結果面板與表單輸入 -->
         <button class="btn btn-sm btn-green" onclick="clearResult()">✕ CLEAR</button>
       </div>
-      <div class="result-panel" id="simResult"><span class="text-dim">Submit a request to see the gateway response...</span></div>
+
+      <!-- 閘道回應結果顯示區：送出請求後由 JS 動態填入回應內容 -->
+      <div class="result-panel" id="simResult">
+        <span class="text-dim">Submit a request to see the gateway response...</span>
+      </div>
+
     </div>
 
+    <!-- ── 右欄：代碼化處理流程說明 ＋ 最新產生的 Token ── -->
     <div class="card">
       <div class="card-title green">TOKENIZATION RESULT</div>
+
+      <!-- 閘道處理流程說明（共 8 步驟） -->
       <div style="font-size:10px;line-height:2;color:var(--text2);">
-        <b class="text-cyan">STEP 1:</b> Intercept incoming POST payload<br>
-        <b class="text-yellow">STEP 2:</b> Scan for PII patterns (NID / email / phone)<br>
-        <b class="text-red">STEP 3:</b> If PII found → BLOCK + log threat alert<br>
-        <b class="text-blue2">STEP 4:</b> Strip agent_id, agent_name from payload<br>
-        <b class="text-purple">STEP 5:</b> Generate UUID token_id<br>
-        <b class="text-green">STEP 6:</b> Save mapping → IdentityVault (encrypted)<br>
-        <b class="text-green">STEP 7:</b> Route clean payload → TelemetryDB (anonymous)<br>
-        <b class="text-dim">STEP 8:</b> Log API call → ApiTrafficLogs<br>
+        <b class="text-cyan">STEP 1:</b> 攔截入站 POST 封包<br>
+        <b class="text-yellow">STEP 2:</b> 掃描 PII 樣式（身分證字號 / 電子郵件 / 電話）<br>
+        <b class="text-red">STEP 3:</b> 若偵測到 PII → 封鎖請求並記錄威脅警報<br>
+        <b class="text-blue2">STEP 4:</b> 從封包中移除 agent_id、agent_name 欄位<br>
+        <b class="text-purple">STEP 5:</b> 產生 UUID token_id 作為匿名識別碼<br>
+        <b class="text-green">STEP 6:</b> 將對應關係存入 IdentityVault（加密隔離）<br>
+        <b class="text-green">STEP 7:</b> 將乾淨封包路由至 TelemetryDB（匿名資料）<br>
+        <b class="text-dim">STEP 8:</b> 將 API 呼叫記錄至 ApiTrafficLogs（稽核用）<br>
       </div>
+
       <hr style="border-color:var(--border);margin:10px 0;">
+
+      <!-- 最新產生的 UUID Token 顯示區 -->
       <div class="card-title purple">LAST GENERATED TOKEN</div>
+
+      <!-- Token 值：每次送出請求後由 JS 動態更新 -->
       <div id="lastToken" style="font-size:10px;word-break:break-all;color:var(--cyan);padding:6px;background:var(--bg);border-radius:4px;min-height:30px;">—</div>
+
+      <!-- Token 與原始身份的對應摘要（如：EMP-0042 → UUID），由 JS 動態填入 -->
       <div id="lastMapping" style="font-size:9px;color:var(--text2);margin-top:6px;"></div>
+
     </div>
+
   </div>
 </div>
-
-<!-- ═══════════════ PAGE: DATABASES ═══════════════ -->
+<!-- ═══════════════ 頁面：資料庫 ═══════════════ -->
 <div class="page" id="page-databases">
+
+  <!-- ── 第一區：身分識別保險庫（最高機密，靜態加密） ── -->
   <div style="margin-bottom:12px;">
     <div class="card">
+      <!-- 標題說明：僅限授權存取，資料靜態加密儲存 -->
       <div class="card-title purple">🔐 IDENTITY VAULT — RESTRICTED ACCESS (Encrypted at Rest)</div>
       <div class="db-table-wrap">
         <table class="db-table">
           <thead><tr>
-            <th>token_id (PK)</th><th>real_agent_id (🔒 ENCRYPTED)</th><th>enc_key_ver</th><th>creation_timestamp</th>
+            <th>token_id (PK)</th>               <!-- 主鍵：匿名化 UUID，對外唯一識別碼 -->
+            <th>real_agent_id (🔒 ENCRYPTED)</th> <!-- 加密欄位：原始員工工號，靜態加密保護 -->
+            <th>enc_key_ver</th>                  <!-- 加密金鑰版本，用於金鑰輪替追蹤 -->
+            <th>creation_timestamp</th>           <!-- Token 建立時間戳記 -->
           </tr></thead>
-          <tbody id="tb-vault"><tr><td colspan="4" style="color:var(--text3);text-align:center;">No records</td></tr></tbody>
+          <!-- 資料列由 JS 動態插入；初始顯示「無紀錄」提示 -->
+          <tbody id="tb-vault">
+            <tr><td colspan="4" style="color:var(--text3);text-align:center;">No records</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
   </div>
 
+  <!-- ── 第二區：遙測日誌資料庫（完全匿名，不含任何 PII） ── -->
   <div style="margin-bottom:12px;">
     <div class="card">
+      <!-- 標題說明：僅儲存 token_id，無法反查真實身份 -->
       <div class="card-title green">📊 TELEMETRY LOGS — ANONYMOUS (token_id only, no PII)</div>
       <div class="db-table-wrap">
         <table class="db-table">
           <thead><tr>
-            <th>log_id</th><th>token_id (FK →Vault)</th><th>module_id</th><th>score</th><th>duration_s</th><th>attempts</th><th>timestamp</th>
+            <th>log_id</th>              <!-- 日誌流水號（自動遞增主鍵） -->
+            <th>token_id (FK →Vault)</th><!-- 外鍵：對應 IdentityVault 的匿名 Token -->
+            <th>module_id</th>           <!-- 訓練模組識別碼 -->
+            <th>score</th>              <!-- 測驗分數（%） -->
+            <th>duration_s</th>         <!-- 作答時間（秒） -->
+            <th>attempts</th>           <!-- 嘗試次數 -->
+            <th>timestamp</th>          <!-- 資料寫入時間戳記 -->
           </tr></thead>
-          <tbody id="tb-telemetry"><tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr></tbody>
+          <!-- 資料列由 JS 動態插入；初始顯示「無紀錄」提示 -->
+          <tbody id="tb-telemetry">
+            <tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
   </div>
 
+  <!-- ── 第三區：API 流量稽核日誌（僅供合規審計，不含原始 PII） ── -->
   <div>
     <div class="card">
+      <!-- 標題說明：記錄每次 API 呼叫的中繼資料，供資安稽核使用 -->
       <div class="card-title yellow">📋 API TRAFFIC LOGS — AUDIT DATABASE</div>
       <div class="db-table-wrap">
         <table class="db-table">
           <thead><tr>
-            <th>log_id</th><th>endpoint</th><th>payload_bytes</th><th>pii_detected</th><th>pii_type</th><th>processing_ms</th><th>timestamp</th>
+            <th>log_id</th>          <!-- 稽核日誌流水號 -->
+            <th>endpoint</th>        <!-- 被呼叫的 API 端點路徑 -->
+            <th>payload_bytes</th>   <!-- 原始封包大小（位元組） -->
+            <th>pii_detected</th>    <!-- 是否偵測到 PII（布林值） -->
+            <th>pii_type</th>        <!-- 偵測到的 PII 類型（如：NID / email / phone） -->
+            <th>processing_ms</th>   <!-- 閘道處理耗時（毫秒） -->
+            <th>timestamp</th>       <!-- API 呼叫時間戳記 -->
           </tr></thead>
-          <tbody id="tb-audit"><tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr></tbody>
+          <!-- 資料列由 JS 動態插入；初始顯示「無紀錄」提示 -->
+          <tbody id="tb-audit">
+            <tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ═══════════════ PAGE: SCHEMA ═══════════════ -->
+</div>
+<!-- ═══════════════ 頁面：系統架構圖 ═══════════════ -->
 <div class="page" id="page-schema">
+
+  <!-- ── 上方卡片：系統資料流向與資料庫隔離架構圖 ── -->
   <div class="card" style="margin-bottom:12px;">
     <div class="card-title cyan">SYSTEM ARCHITECTURE — DATA FLOW & DATABASE SEPARATION</div>
+
+    <!-- 架構圖容器：水平排列各節點，支援換行與間距 -->
     <div class="schema-diagram" style="flex-wrap:wrap;gap:8px;">
+
+      <!-- 節點①：平板 App（資料來源，含未處理 PII） -->
       <div class="schema-box gateway">
         <div class="db-name">📱 TABLET APP</div>
         <div class="db-field">POST /api/v1/submit_sprint</div>
+        <!-- 原始請求封包包含身份欄位 -->
         <div class="db-field" style="color:var(--red2);">{ agent_id, agent_name, score... }</div>
+        <!-- 警示：此封包含有個人識別資訊 -->
         <div class="db-field" style="color:var(--text3);">⚠ Contains PII</div>
       </div>
+
+      <!-- 流向箭頭：原始（髒）封包進入閘道 -->
       <div class="schema-arrow"><span>→</span><span class="arrow-label">DIRTY</span></div>
+
+      <!-- 節點②：安全閘道（攔截、掃描、代碼化、路由） -->
       <div class="schema-box gateway">
         <div class="db-name">🛡 SECURE GATEWAY</div>
-        <div class="db-field">① Intercept POST</div>
-        <div class="db-field">② PII Scanner</div>
-        <div class="db-field">③ Tokenizer (UUID)</div>
-        <div class="db-field">④ Route Payload</div>
+        <div class="db-field">① Intercept POST</div>   <!-- 攔截入站 POST 請求 -->
+        <div class="db-field">② PII Scanner</div>      <!-- 掃描 PII 樣式 -->
+        <div class="db-field">③ Tokenizer (UUID)</div> <!-- 產生 UUID 代碼取代 PII -->
+        <div class="db-field">④ Route Payload</div>    <!-- 將乾淨封包分流至各資料庫 -->
       </div>
+
+      <!-- 流向箭頭：閘道將封包分流至兩個目標資料庫 -->
       <div class="schema-arrow"><span>↗<br>↘</span><span class="arrow-label">SPLIT</span></div>
+
+      <!-- 節點③④：垂直排列的兩個目標資料庫 -->
       <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <!-- 節點③：身分識別保險庫（加密隔離，僅存身份對應關係） -->
         <div class="schema-box vault">
           <div class="db-name">🔐 IDENTITY VAULT</div>
-          <div class="db-field"><span class="fk">PK</span> token_id (UUID)</div>
-          <div class="db-field">real_agent_id 🔒 ENC</div>
-          <div class="db-field">enc_key_version</div>
-          <div class="db-field">creation_timestamp</div>
+          <div class="db-field"><span class="fk">PK</span> token_id (UUID)</div> <!-- 主鍵：匿名 UUID -->
+          <div class="db-field">real_agent_id 🔒 ENC</div>                       <!-- 加密儲存的真實工號 -->
+          <div class="db-field">enc_key_version</div>                             <!-- 加密金鑰版本（輪替追蹤） -->
+          <div class="db-field">creation_timestamp</div>                          <!-- Token 建立時間 -->
+          <!-- 存取等級標示：限制存取、靜態加密、實體/邏輯隔離 -->
           <div class="db-field" style="color:var(--purple);font-size:8px;">RESTRICTED · ENCRYPTED · ISOLATED</div>
         </div>
+
+        <!-- 節點④：遙測日誌資料庫（匿名，供數據分析使用） -->
         <div class="schema-box telemetry">
           <div class="db-name">📊 TELEMETRY LOGS</div>
-          <div class="db-field"><span class="fk">FK</span> token_id → Vault</div>
-          <div class="db-field">module_id, score</div>
-          <div class="db-field">duration_s, attempts</div>
-          <div class="db-field">timestamp</div>
+          <div class="db-field"><span class="fk">FK</span> token_id → Vault</div> <!-- 外鍵：參照 Vault 的匿名 Token -->
+          <div class="db-field">module_id, score</div>                            <!-- 訓練模組與分數 -->
+          <div class="db-field">duration_s, attempts</div>                        <!-- 作答時間與嘗試次數 -->
+          <div class="db-field">timestamp</div>                                   <!-- 紀錄時間戳記 -->
+          <!-- 安全標示：不含 PII，可安全用於數據分析 -->
           <div class="db-field" style="color:var(--green);font-size:8px;">NO PII · ANALYTICS SAFE</div>
         </div>
+
       </div>
+
+      <!-- 流向箭頭：所有 API 呼叫皆寫入稽核日誌 -->
       <div class="schema-arrow"><span>↓</span><span class="arrow-label">ALL</span></div>
+
+      <!-- 節點⑤：API 流量稽核日誌（記錄中繼資料，不含 PII 值） -->
       <div class="schema-box audit">
         <div class="db-name">📋 API TRAFFIC LOGS</div>
-        <div class="db-field"><span class="fk">PK</span> log_id</div>
-        <div class="db-field">endpoint_accessed</div>
-        <div class="db-field">payload_size_bytes</div>
-        <div class="db-field">pii_detected_flag</div>
-        <div class="db-field">processing_time_ms</div>
+        <div class="db-field"><span class="fk">PK</span> log_id</div>  <!-- 稽核日誌主鍵 -->
+        <div class="db-field">endpoint_accessed</div>                  <!-- 被呼叫的 API 端點 -->
+        <div class="db-field">payload_size_bytes</div>                 <!-- 封包大小（位元組） -->
+        <div class="db-field">pii_detected_flag</div>                  <!-- PII 偵測旗標（布林值） -->
+        <div class="db-field">processing_time_ms</div>                 <!-- 閘道處理耗時（毫秒） -->
+        <!-- 安全標示：僅供稽核，不儲存 PII 實際值 -->
         <div class="db-field" style="color:var(--yellow);font-size:8px;">AUDIT ONLY · NO PII VALUES</div>
       </div>
+
     </div>
   </div>
 
+  <!-- ── 下方兩欄：PDPA 法規遵循規則 ＋ PII 偵測正規表達式 ── -->
   <div class="grid2">
+
+    <!-- 左欄：個資保護法（PDPA）合規設計原則列表 -->
     <div class="card">
       <div class="card-title red">🚫 PDPA COMPLIANCE RULES</div>
       <div style="font-size:10px;line-height:2;color:var(--text2);">
+        <!-- 最小授權原則：分析師僅能存取匿名遙測資料庫 -->
         ● <b class="text-green">Principle of Least Privilege</b> — Analysts access TelemetryDB only<br>
+        <!-- 資料最小化：僅 token_id 流入分析系統，不含真實身份 -->
         ● <b class="text-green">Data Minimization</b> — Only token_id flows to analytics<br>
+        <!-- 實體/邏輯隔離：IdentityVault 與其他資料庫完全隔離 -->
         ● <b class="text-green">Physical/Logical Separation</b> — IdentityVault is isolated<br>
+        <!-- 靜態加密：Vault 中的真實工號加密儲存 -->
         ● <b class="text-green">Encryption at Rest</b> — real_agent_id encrypted in Vault<br>
+        <!-- 金鑰輪替：透過版本號追蹤加密金鑰更新歷程 -->
         ● <b class="text-green">Key Rotation</b> — enc_key_version tracked<br>
+        <!-- 稽核軌跡：所有閘道流量皆留有可查核紀錄 -->
         ● <b class="text-green">Audit Trail</b> — All gateway traffic logged<br>
+        <!-- 自動偵測：身分證字號、電子郵件、電話號碼自動封鎖 -->
         ● <b class="text-green">PII Detection</b> — Auto-block NID / email / phone<br>
       </div>
     </div>
+
+    <!-- 右欄：PII 偵測正規表達式對照表 -->
     <div class="card">
       <div class="card-title blue">🔑 PII DETECTION PATTERNS</div>
       <div style="font-size:10px;line-height:2;">
+
+        <!-- 台灣身分證字號：首字大寫英文字母 + 1或2 + 八位數字 -->
         <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:3px 0;">
           <span class="text-dim">Taiwan National ID</span>
           <span class="text-cyan font-mono">[A-Z][12]\d{8}</span>
         </div>
+
+        <!-- 電子郵件地址：標準 @ 格式 -->
         <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:3px 0;">
           <span class="text-dim">Email Address</span>
           <span class="text-cyan">[^\s]+@[^\s]+\.[^\s]+</span>
         </div>
+
+        <!-- 台灣手機號碼：09 開頭共 10 碼 -->
         <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:3px 0;">
           <span class="text-dim">TW Phone (Mobile)</span>
           <span class="text-cyan">09\d{8}</span>
         </div>
+
+        <!-- 台灣市話：0 + 區碼(2-8) + 七至八位數字 -->
         <div style="display:flex;justify-content:space-between;padding:3px 0;">
           <span class="text-dim">TW Phone (Landline)</span>
           <span class="text-cyan">0[2-8]\d{7,8}</span>
         </div>
+
       </div>
     </div>
+
   </div>
 </div>
 
 <script>
-// ══════════════ STATE ══════════════
+// ══════════════ 全域狀態管理 ══════════════
 const state = {
-  total:0, clean:0, threats:0, latencies:[],
-  nid:0, email:0, phone:0, nameCount:0,
-  vault:[], telemetry:[], audit:[], alerts:[],
-  autoTimer:null, logCounter:0
+  total: 0,        // 總攔截請求數
+  clean: 0,        // 通過檢查的乾淨請求數
+  threats: 0,      // 偵測到 PII 並封鎖的威脅數
+  latencies: [],   // 各次請求的處理延遲紀錄（毫秒），用於計算平均值
+
+  // PII 偵測計數器（各類型分開統計）
+  nid: 0,          // 台灣身分證字號封鎖次數
+  email: 0,        // 電子郵件地址封鎖次數
+  phone: 0,        // 電話號碼封鎖次數
+  nameCount: 0,    // 人員姓名/工號代碼化次數
+
+  // 三個資料庫的本地快取陣列（對應後端三張資料表）
+  vault: [],       // IdentityVault：Token ↔ 真實身份對應紀錄
+  telemetry: [],   // TelemetryDB：匿名化學習遙測資料
+  audit: [],       // ApiTrafficLogs：API 流量稽核紀錄
+  alerts: [],      // 威脅警報列表（顯示於儀表板）
+
+  autoTimer: null, // 自動模擬的 setInterval 計時器 ID（null 表示未啟動）
+  logCounter: 0    // 日誌流水號計數器（每次 API 呼叫遞增）
 };
 
-// PII patterns
+// ══════════════ PII 偵測正規表達式 ══════════════
 const PII_PATTERNS = {
-  nid:   { re:/[A-Z][12]\d{8}/g,              label:'Taiwan National ID', type:'nid' },
-  email: { re:/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, label:'Email Address', type:'email' },
-  phone: { re:/09\d{8}|0[2-8]\d{7,8}/g,       label:'Phone Number',      type:'phone' },
+  // 台灣身分證字號：首字大寫英文 + 1或2（性別碼）+ 八位數字
+  nid: {
+    re: /[A-Z][12]\d{8}/g,
+    label: 'Taiwan National ID',
+    type: 'nid'
+  },
+  // 電子郵件地址：支援常見特殊字元，含子網域與多段 TLD
+  email: {
+    re: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g,
+    label: 'Email Address',
+    type: 'email'
+  },
+  // 台灣電話：手機（09 開頭 10 碼）或市話（0+區碼 2-8 + 七至八位數字）
+  phone: {
+    re: /09\d{8}|0[2-8]\d{7,8}/g,
+    label: 'Phone Number',
+    type: 'phone'
+  },
 };
 
-// UUID generator
+// ══════════════ 工具函式 ══════════════
+
+/**
+ * 產生 RFC 4122 v4 格式的 UUID
+ * 用途：替換封包中的 PII，作為匿名化 token_id
+ * 格式：xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+ */
 function uuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
-    const r=Math.random()*16|0; return(c==='x'?r:(r&0x3|0x8)).toString(16);
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    // x 位元：完全隨機；y 位元：固定高位為 10（RFC 規範變體碼）
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
   });
 }
 
-// Encrypt simulation
+/**
+ * 模擬靜態加密（展示用，非真實加密）
+ * 將字串轉為 Base64 後擷取前 12 字元，加上鎖頭 emoji 表示加密狀態
+ * 實際環境應使用 AES-256 或對等強度演算法
+ */
 function fakeEncrypt(s) {
-  return '🔒 ' + btoa(s).substring(0,12) + '...';
+  return '🔒 ' + btoa(s).substring(0, 12) + '...';
 }
 
+/**
+ * 取得當前時間戳記（格式：YYYY-MM-DD HH:MM:SS）
+ * 將 ISO 8601 格式中的 T 替換為空格，並截去毫秒與時區資訊
+ */
 function ts() {
-  return new Date().toISOString().replace('T',' ').substring(0,19);
+  return new Date().toISOString().replace('T', ' ').substring(0, 19);
 }
+// ══════════════ PII 掃描器 ══════════════
 
-// ══════════════ PII SCANNER ══════════════
+/**
+ * 掃描封包中所有欄位是否含有 PII
+ * @param {Object} payload - 原始請求封包（物件格式）
+ * @returns {Array} found - 偵測結果陣列，每筆包含 type / label / values
+ */
 function scanPII(payload) {
+  // 將整個封包序列化為字串，確保巢狀欄位也能被正規表達式掃描到
   const str = JSON.stringify(payload);
   const found = [];
-  for(const [k, v] of Object.entries(PII_PATTERNS)){
-    const m = str.match(v.re);
-    if(m) found.push({type:k, label:v.label, values:m});
+
+  // 逐一套用 PII_PATTERNS 中的每個正規表達式
+  for (const [k, v] of Object.entries(PII_PATTERNS)) {
+    const m = str.match(v.re); // 回傳所有符合的字串陣列，無符合則為 null
+    if (m) found.push({ type: k, label: v.label, values: m });
   }
-  return found;
+  return found; // 若陣列為空表示無 PII，可安全放行
 }
 
-// ══════════════ GATEWAY LOGIC ══════════════
-function processRequest(payload, endpoint='/api/v1/submit_sprint') {
+// ══════════════ 閘道核心處理邏輯 ══════════════
+
+/**
+ * 處理單筆 API 請求：掃描 → 封鎖或代碼化 → 寫入各資料庫
+ * @param {Object} payload  - 原始請求封包
+ * @param {string} endpoint - 被呼叫的 API 端點路徑（預設為提交測驗結果端點）
+ * @returns {Object} 處理結果：封鎖時回傳封鎖原因，放行時回傳乾淨封包與 Token
+ */
+function processRequest(payload, endpoint = '/api/v1/submit_sprint') {
+
+  // ── STEP 1：計時開始，進行 PII 掃描 ──
   const t0 = performance.now();
   const piiFound = scanPII(payload);
   const hasPII = piiFound.length > 0;
-  const latency = Math.round((performance.now()-t0) + 8 + Math.random()*30);
-  const lid = 'LOG-' + String(++state.logCounter).padStart(4,'0');
 
-  state.total++;
-  state.latencies.push(latency);
+  // 計算處理延遲：實際掃描耗時 + 模擬網路基礎延遲（8ms）+ 隨機抖動（0–30ms）
+  const latency = Math.round((performance.now() - t0) + 8 + Math.random() * 30);
 
-  // Audit log always
+  // 產生本次請求的稽核日誌流水號（格式：LOG-0001）
+  const lid = 'LOG-' + String(++state.logCounter).padStart(4, '0');
+  state.total++; // 累計總攔截請求數
+  state.latencies.push(latency); // 記錄延遲供後續計算平均值
+
+  // ── STEP 2：無論是否含 PII，皆寫入 API 稽核日誌 ──
   state.audit.push({
     log_id: lid,
     endpoint,
-    payload_bytes: JSON.stringify(payload).length,
-    pii_detected: hasPII,
-    pii_type: hasPII ? piiFound.map(p=>p.label).join(', ') : '—',
+    payload_bytes: JSON.stringify(payload).length, // 原始封包大小（位元組）
+    pii_detected: hasPII,                          // PII 偵測旗標
+    pii_type: hasPII ? piiFound.map(p => p.label).join(', ') : '—', // 偵測到的 PII 類型清單
     processing_ms: latency,
     timestamp: ts()
   });
 
-  if(hasPII) {
-    state.threats++;
-    piiFound.forEach(p=>{
-      state[p.type] = (state[p.type]||0)+1;
-      addAlert('critical','☠ PII LEAK BLOCKED',
-        `Detected: ${p.label} in payload to ${endpoint}. Payload quarantined. Incident logged.`, p.values.join(', '));
+  // ── STEP 3：若偵測到 PII → 封鎖請求，記錄威脅警報，提前返回 ──
+  if (hasPII) {
+    state.threats++; // 累計威脅封鎖數
+
+    piiFound.forEach(p => {
+      // 各 PII 類型計數器遞增（nid / email / phone）
+      state[p.type] = (state[p.type] || 0) + 1;
+
+      // 在儀表板新增一筆紅色威脅警報
+      addAlert(
+        'critical',
+        '☠ PII LEAK BLOCKED',
+        `Detected: ${p.label} in payload to ${endpoint}. Payload quarantined. Incident logged.`,
+        p.values.join(', ') // 將所有符合的 PII 值列出（僅用於內部警報，不寫入任何資料庫）
+      );
     });
-    updateMetrics();
-    renderDatabases();
-    return { blocked:true, reason:'PII_DETECTED', pii:piiFound, latency };
+
+    updateMetrics();    // 更新儀表板指標數字
+    renderDatabases();  // 重新渲染資料庫表格
+    // 封鎖回應：不產生 Token，不寫入 Vault 或 TelemetryDB
+    return { blocked: true, reason: 'PII_DETECTED', pii: piiFound, latency };
   }
 
-  // Strip identity, tokenize
+  // ── STEP 4：無 PII → 移除身份欄位，產生匿名 UUID Token ──
   const tokenId = uuid();
+
+  // 將 agent_id 或 agent_name 模擬加密後存入 IdentityVault
+  // 優先使用 agent_id，其次 agent_name，皆無則標記為 UNKNOWN
   const encAgentId = fakeEncrypt(payload.agent_id || payload.agent_name || 'UNKNOWN');
 
+  // ── STEP 5：寫入 IdentityVault（Token ↔ 加密真實身份 對應表） ──
   state.vault.push({
     token_id: tokenId,
-    real_agent_id: encAgentId,
-    enc_key_version: 'v2025.1',
+    real_agent_id: encAgentId,      // 加密儲存，不可直接讀取
+    enc_key_version: 'v2025.1',     // 金鑰版本，用於輪替追蹤
     creation_timestamp: ts()
   });
 
+  // ── STEP 6：建立乾淨封包（移除所有身份識別欄位） ──
   const cleanPayload = {};
-  for(const [k,v] of Object.entries(payload)){
-    if(!['agent_id','agent_name'].includes(k)) cleanPayload[k]=v;
+  for (const [k, v] of Object.entries(payload)) {
+    // 過濾掉 agent_id 與 agent_name，其餘欄位原樣保留
+    if (!['agent_id', 'agent_name'].includes(k)) cleanPayload[k] = v;
   }
-  cleanPayload.token_id = tokenId;
+  cleanPayload.token_id = tokenId; // 以匿名 Token 取代原始身份欄位
 
+  // ── STEP 7：寫入 TelemetryDB（匿名遙測資料，供數據分析使用） ──
   const telLog = {
-    log_id: 'TEL-' + String(state.telemetry.length+1).padStart(4,'0'),
-    token_id: tokenId.substring(0,18)+'...',
-    module_id: payload.module_id || 'unknown',
-    score: payload.score ?? '—',
-    duration_s: payload.duration_s ?? '—',
-    attempts: payload.attempts ?? '—',
+    log_id: 'TEL-' + String(state.telemetry.length + 1).padStart(4, '0'),
+    token_id: tokenId.substring(0, 18) + '...', // 僅顯示 UUID 前段，避免完整 Token 外洩
+    module_id:  payload.module_id  ?? 'unknown', // 訓練模組識別碼
+    score:      payload.score      ?? '—',       // 測驗分數
+    duration_s: payload.duration_s ?? '—',       // 作答時間（秒）
+    attempts:   payload.attempts   ?? '—',       // 嘗試次數
     timestamp: ts()
   };
   state.telemetry.push(telLog);
-  state.clean++;
-  state.nameCount++;
 
-  updateMetrics();
-  renderDatabases();
+  state.clean++;     // 累計乾淨（成功代碼化）請求數
+  state.nameCount++; // 累計人員姓名/工號代碼化次數
 
-  return { blocked:false, tokenId, cleanPayload, dirtyPayload:payload, latency };
+  updateMetrics();   // 更新儀表板指標數字
+  renderDatabases(); // 重新渲染資料庫表格
+
+  // 放行回應：回傳原始封包與乾淨封包供 UI 對照展示
+  return { blocked: false, tokenId, cleanPayload, dirtyPayload: payload, latency };
 }
+// ══════════════ UI 輔助函式 ══════════════
 
-// ══════════════ UI HELPERS ══════════════
+/**
+ * 更新儀表板頂部四個指標卡片與 PII 計數器
+ * 每次 processRequest() 完成後呼叫，確保數字即時反映最新狀態
+ */
 function updateMetrics() {
+  // 更新三個主要計數器
   document.getElementById('m-total').textContent = state.total;
   document.getElementById('m-clean').textContent = state.clean;
   document.getElementById('m-threats').textContent = state.threats;
-  const avg = state.latencies.length ? Math.round(state.latencies.reduce((a,b)=>a+b)/state.latencies.length) : 0;
-  document.getElementById('m-latency').innerHTML = avg+'<span style="font-size:14px">ms</span>';
-  const cleanPct = state.total ? (state.clean/state.total*100).toFixed(0) : 0;
-  const threatPct = state.total ? (state.threats/state.total*100).toFixed(0) : 0;
-  document.getElementById('cleanBar').style.width = cleanPct+'%';
-  document.getElementById('threatBar').style.width = Math.min(threatPct,100)+'%';
-  document.getElementById('cnt-nid').textContent = (state.nid||0)+' blocked';
-  document.getElementById('cnt-email').textContent = (state.email||0)+' blocked';
-  document.getElementById('cnt-phone').textContent = (state.phone||0)+' blocked';
-  document.getElementById('cnt-name').textContent = state.nameCount+' tokenized';
-  if(state.threats>0) document.getElementById('threatBadge').style.display='';
-  else document.getElementById('threatBadge').style.display='none';
+
+  // 計算平均延遲：所有延遲值加總後除以次數，無資料時顯示 0
+  const avg = state.latencies.length
+    ? Math.round(state.latencies.reduce((a, b) => a + b) / state.latencies.length)
+    : 0;
+  document.getElementById('m-latency').innerHTML = avg + '<span style="font-size:14px">ms</span>';
+
+  // 計算乾淨請求與威脅請求各佔總數的百分比，用於更新進度條寬度
+  const cleanPct  = state.total ? (state.clean   / state.total * 100).toFixed(0) : 0;
+  const threatPct = state.total ? (state.threats / state.total * 100).toFixed(0) : 0;
+  document.getElementById('cleanBar').style.width  = cleanPct + '%';
+  document.getElementById('threatBar').style.width = Math.min(threatPct, 100) + '%'; // 上限 100%，防止溢位
+
+  // 更新各 PII 類型的封鎖計數（|| 0 防止 undefined 顯示異常）
+  document.getElementById('cnt-nid').textContent   = (state.nid   || 0) + ' blocked';
+  document.getElementById('cnt-email').textContent = (state.email || 0) + ' blocked';
+  document.getElementById('cnt-phone').textContent = (state.phone || 0) + ' blocked';
+  document.getElementById('cnt-name').textContent  = state.nameCount    + ' tokenized';
+
+  // 控制導覽列的威脅徽章顯示（有威脅才顯示紅點）
+  document.getElementById('threatBadge').style.display = state.threats > 0 ? '' : 'none';
 }
 
-function addAlert(level, title, body, detail='') {
-  const icons = {critical:'🚨',warning:'⚠️',info:'ℹ️'};
-  const a = {level, title, body, detail, time:ts()};
+/**
+ * 在儀表板的威脅警報區新增一筆警報卡片
+ * @param {string} level  - 嚴重程度：'critical' | 'warning' | 'info'
+ * @param {string} title  - 警報標題（粗體顯示）
+ * @param {string} body   - 警報內文（描述事件詳情）
+ * @param {string} detail - 偵測到的 PII 實際值（選填，顯示為紅色附加資訊）
+ */
+function addAlert(level, title, body, detail = '') {
+  // 各嚴重程度對應的 emoji 圖示
+  const icons = { critical: '🚨', warning: '⚠️', info: 'ℹ️' };
+
+  // 將警報物件存入全域狀態（最新的排在最前面）
+  const a = { level, title, body, detail, time: ts() };
   state.alerts.unshift(a);
+
   const c = document.getElementById('alertContainer');
+
+  // 移除「無威脅」預設提示文字（首筆警報出現時觸發）
   const first = c.querySelector('.no-alerts');
-  if(first) first.remove();
+  if (first) first.remove();
+
+  // 動態建立警報卡片 DOM 元素
   const div = document.createElement('div');
   div.className = `alert-box ${level}`;
-  div.innerHTML = `<div class="alert-icon">${icons[level]}</div>
-    <div><div class="alert-title">${title}</div>
-    <div class="alert-body">${body}${detail?'<br><span style="color:var(--red2);">Value: '+detail+'</span>':''}</div>
-    <div class="alert-time">${a.time}</div></div>`;
+  div.innerHTML = `
+    <div class="alert-icon">${icons[level]}</div>
+    <div>
+      <div class="alert-title">${title}</div>
+      <div class="alert-body">
+        ${body}
+        ${detail ? '<br><span style="color:var(--red2);">Value: ' + detail + '</span>' : ''}
+      </div>
+      <div class="alert-time">${a.time}</div>
+    </div>`;
+
+  // 插入至容器最前面（最新警報顯示在頂部）
   c.insertBefore(div, c.firstChild);
+
+  // 觸發閃爍動畫，吸引使用者注意新警報
   div.classList.add('flash');
 }
 
-function addStreamLog(method, path, status, pii=false) {
-  const logs = [document.getElementById('streamLog'), document.getElementById('trafficLog')];
-  logs.forEach(log=>{
-    if(!log) return;
+/**
+ * 在串流日誌區同步新增一筆 API 流量紀錄
+ * 同時更新儀表板的 streamLog 與流量頁的 trafficLog 兩個容器
+ * @param {string}  method - HTTP 方法（GET / POST / PUT…）
+ * @param {string}  path   - API 端點路徑
+ * @param {number}  status - HTTP 狀態碼
+ * @param {boolean} pii    - 是否偵測到 PII（true 時顯示 ⚠PII 警示標籤）
+ */
+function addStreamLog(method, path, status, pii = false) {
+  const logs = [
+    document.getElementById('streamLog'),   // 儀表板頁的串流日誌
+    document.getElementById('trafficLog')   // 即時流量頁的完整日誌
+  ];
+
+  logs.forEach(log => {
+    if (!log) return; // 防止頁面尚未渲染時的 null 錯誤
+
+    // 移除「等待流量」預設提示文字（首筆紀錄出現時觸發）
     const first = log.querySelector('[style*="Waiting"]');
-    if(first) first.remove();
+    if (first) first.remove();
+
+    // 建立日誌條目元素
     const entry = document.createElement('div');
     entry.className = 'log-entry';
-    const sc = status>=200&&status<300?'s200':status>=400?'s400':'s500';
-    entry.innerHTML = `<span class="log-ts">${new Date().toTimeString().substring(0,8)}</span>
+
+    // 依狀態碼選擇對應的 CSS class（2xx 綠色 / 4xx 紅色 / 其他橘色）
+    const sc = status >= 200 && status < 300 ? 's200' : status >= 400 ? 's400' : 's500';
+
+    entry.innerHTML = `
+      <span class="log-ts">${new Date().toTimeString().substring(0, 8)}</span>
       <span class="log-method">${method}</span>
       <span class="log-path">${path}</span>
       <span class="log-status ${sc}">${status}</span>
-      ${pii?'<span class="log-pii">⚠PII</span>':''}`;
+      ${pii ? '<span class="log-pii">⚠PII</span>' : ''}`;
+
+    // 插入至頂部，保持最新紀錄在最上方
     log.insertBefore(entry, log.firstChild);
-    while(log.children.length>80) log.removeChild(log.lastChild);
+
+    // 限制最多保留 80 筆，超出時從底部移除最舊紀錄，避免 DOM 過度膨脹
+    while (log.children.length > 80) log.removeChild(log.lastChild);
   });
 }
 
-function renderJSON(obj, dirty=false) {
+/**
+ * 將封包物件轉換為語法高亮的 HTML 字串，用於即時流量頁的左右對照面板
+ * @param {Object}  obj   - 要渲染的封包物件（原始或乾淨）
+ * @param {boolean} dirty - true 時額外標記 PII 值為紅色警示樣式
+ * @returns {string} 帶有 HTML 標籤的 JSON 字串
+ */
+function renderJSON(obj, dirty = false) {
   const lines = JSON.stringify(obj, null, 2).split('\n');
-  return lines.map(line=>{
-    // highlight keys
-    let l = line.replace(/"([^"]+)":/g,'<span class="json-key">"$1"</span>:');
-    // highlight pii values
-    if(dirty){
-      l = l.replace(/("([A-Z][12]\d{8})|(\b09\d{8}\b)|([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}))"/, 
-        '<span class="json-val pii">⚠ $&</span>');
-      l = l.replace(/": "(EMP-\d+|林|張|王|陳)/g, '": <span class="json-val pii">⚠ "$1</span>');
+
+  return lines.map(line => {
+    // 將所有 JSON 鍵名套用藍色高亮 CSS class
+    let l = line.replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:');
+
+    if (dirty) {
+      // 原始封包模式：標記符合 PII 正規表達式的值（身分證字號 / 手機 / 電子郵件）
+      l = l.replace(
+        /("([A-Z][12]\d{8})|(\b09\d{8}\b)|([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}))"/, 
+        '<span class="json-val pii">⚠ $&</span>'
+      );
+      // 額外標記常見中文姓氏開頭的工號與姓名欄位
+      l = l.replace(
+        /": "(EMP-\d+|林|張|王|陳)/g,
+        '": <span class="json-val pii">⚠ "$1</span>'
+      );
     }
-    // highlight tokens
-    if(!dirty && line.includes('token_id')) {
-      l = l.replace(/": "([0-9a-f\-]{36})"/, '": <span class="json-val token">"$1"</span>');
+
+    // 乾淨封包模式：將 token_id 的 UUID 值套用綠色 Token 樣式
+    if (!dirty && line.includes('token_id')) {
+      l = l.replace(
+        /": "([0-9a-f\-]{36})"/,
+        '": <span class="json-val token">"$1"</span>'
+      );
     }
+
     return l;
   }).join('\n');
 }
 
+/**
+ * 重新渲染資料庫頁面的三張資料表
+ * 每次 processRequest() 寫入新資料後呼叫，僅顯示最新 10 筆（倒序排列）
+ */
 function renderDatabases() {
-  // Vault
+
+  // ── IdentityVault 資料表 ──
   const vb = document.getElementById('tb-vault');
-  vb.innerHTML = state.vault.length ? state.vault.slice(-10).reverse().map(r=>`<tr>
-    <td class="token" style="font-size:9px;">${r.token_id}</td>
-    <td class="enc">${r.real_agent_id}</td>
-    <td><span class="db-tag">${r.enc_key_version}</span></td>
-    <td style="color:var(--text2);">${r.creation_timestamp}</td>
-  </tr>`).join('') : '<tr><td colspan="4" style="color:var(--text3);text-align:center;">No records</td></tr>';
+  vb.innerHTML = state.vault.length
+    ? state.vault.slice(-10).reverse().map(r => `<tr>
+        <td class="token" style="font-size:9px;">${r.token_id}</td>      <!-- 完整 UUID Token -->
+        <td class="enc">${r.real_agent_id}</td>                           <!-- 加密後的真實工號 -->
+        <td><span class="db-tag">${r.enc_key_version}</span></td>         <!-- 金鑰版本標籤 -->
+        <td style="color:var(--text2);">${r.creation_timestamp}</td>      <!-- 建立時間 -->
+      </tr>`).join('')
+    : '<tr><td colspan="4" style="color:var(--text3);text-align:center;">No records</td></tr>';
 
-  // Telemetry
+  // ── TelemetryDB 遙測日誌資料表 ──
   const tb = document.getElementById('tb-telemetry');
-  tb.innerHTML = state.telemetry.length ? state.telemetry.slice(-10).reverse().map(r=>`<tr>
-    <td style="color:var(--text2);">${r.log_id}</td>
-    <td class="token" style="font-size:9px;">${r.token_id}</td>
-    <td><span class="db-tag">${r.module_id}</span></td>
-    <td style="color:var(--green);">${r.score}</td>
-    <td>${r.duration_s}s</td>
-    <td>${r.attempts}</td>
-    <td style="color:var(--text2);">${r.timestamp}</td>
-  </tr>`).join('') : '<tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr>';
+  tb.innerHTML = state.telemetry.length
+    ? state.telemetry.slice(-10).reverse().map(r => `<tr>
+        <td style="color:var(--text2);">${r.log_id}</td>                  <!-- 日誌流水號 -->
+        <td class="token" style="font-size:9px;">${r.token_id}</td>       <!-- 截斷的 Token（前 18 碼） -->
+        <td><span class="db-tag">${r.module_id}</span></td>               <!-- 訓練模組識別碼 -->
+        <td style="color:var(--green);">${r.score}</td>                   <!-- 測驗分數（綠色） -->
+        <td>${r.duration_s}s</td>                                          <!-- 作答時間 -->
+        <td>${r.attempts}</td>                                             <!-- 嘗試次數 -->
+        <td style="color:var(--text2);">${r.timestamp}</td>               <!-- 紀錄時間 -->
+      </tr>`).join('')
+    : '<tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr>';
 
-  // Audit
+  // ── ApiTrafficLogs 稽核日誌資料表 ──
   const ab = document.getElementById('tb-audit');
-  ab.innerHTML = state.audit.length ? state.audit.slice(-10).reverse().map(r=>`<tr>
-    <td style="color:var(--text2);">${r.log_id}</td>
-    <td style="color:var(--blue2);">${r.endpoint}</td>
-    <td>${r.payload_bytes}B</td>
-    <td class="${r.pii_detected?'bool-t text-red':'bool-f'}">${r.pii_detected?'TRUE ⚠':'false'}</td>
-    <td style="color:var(--red2);font-size:9px;">${r.pii_type}</td>
-    <td style="color:var(--yellow);">${r.processing_ms}ms</td>
-    <td style="color:var(--text2);">${r.timestamp}</td>
-  </tr>`).join('') : '<tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr>';
+  ab.innerHTML = state.audit.length
+    ? state.audit.slice(-10).reverse().map(r => `<tr>
+        <td style="color:var(--text2);">${r.log_id}</td>                  <!-- 稽核流水號 -->
+        <td style="color:var(--blue2);">${r.endpoint}</td>                <!-- API 端點路徑（藍色） -->
+        <td>${r.payload_bytes}B</td>                                       <!-- 原始封包大小 -->
+        <!-- PII 偵測旗標：TRUE 顯示紅色警示，false 顯示低調樣式 -->
+        <td class="${r.pii_detected ? 'bool-t text-red' : 'bool-f'}">${r.pii_detected ? 'TRUE ⚠' : 'false'}</td>
+        <td style="color:var(--red2);font-size:9px;">${r.pii_type}</td>   <!-- PII 類型清單（紅色小字） -->
+        <td style="color:var(--yellow);">${r.processing_ms}ms</td>        <!-- 處理延遲（黃色） -->
+        <td style="color:var(--text2);">${r.timestamp}</td>               <!-- 呼叫時間 -->
+      </tr>`).join('')
+    : '<tr><td colspan="7" style="color:var(--text3);text-align:center;">No records</td></tr>';
 }
+// ══════════════ 操作函式 ══════════════
 
-// ══════════════ ACTIONS ══════════════
+// 模擬用的客服人員測試資料（工號 + 中文姓名）
 const SAMPLE_AGENTS = [
-  {id:'EMP-0042',name:'林小明'},{id:'EMP-0187',name:'張美華'},
-  {id:'EMP-0093',name:'王大偉'},{id:'EMP-0251',name:'陳雅婷'},
-  {id:'EMP-0314',name:'李志遠'},{id:'EMP-0076',name:'黃淑芬'},
+  { id: 'EMP-0042', name: '林小明' },
+  { id: 'EMP-0187', name: '張美華' },
+  { id: 'EMP-0093', name: '王大偉' },
+  { id: 'EMP-0251', name: '陳雅婷' },
+  { id: 'EMP-0314', name: '李志遠' },
+  { id: 'EMP-0076', name: '黃淑芬' },
 ];
-const MODULES = ['compliance_quiz_01','investment_linked_regulation','term_life_basics','cross_sell_framework','data_sharing_rules'];
 
+// 可供測試的訓練模組清單
+const MODULES = [
+  'compliance_quiz_01',
+  'investment_linked_regulation',
+  'term_life_basics',
+  'cross_sell_framework',
+  'data_sharing_rules'
+];
+
+/**
+ * 模擬一筆正常的測驗結果提交（不含 PII 攻擊）
+ * 從 SAMPLE_AGENTS 與 MODULES 隨機抽取資料組成封包，
+ * 傳入 animateGateway() 觸發閘道動畫流程
+ */
 function simulateTraffic() {
-  const ag = SAMPLE_AGENTS[Math.floor(Math.random()*SAMPLE_AGENTS.length)];
-  const mod = MODULES[Math.floor(Math.random()*MODULES.length)];
+  const ag  = SAMPLE_AGENTS[Math.floor(Math.random() * SAMPLE_AGENTS.length)];
+  const mod = MODULES[Math.floor(Math.random() * MODULES.length)];
   const payload = {
-    agent_id: ag.id, agent_name: ag.name,
-    module_id: mod, score: Math.floor(60+Math.random()*40),
-    duration_s: Math.floor(200+Math.random()*300),
-    attempts: Math.ceil(Math.random()*3),
+    agent_id:   ag.id,
+    agent_name: ag.name,
+    module_id:  mod,
+    score:      Math.floor(60 + Math.random() * 40),  // 隨機分數（60–100）
+    duration_s: Math.floor(200 + Math.random() * 300), // 隨機作答時間（200–500 秒）
+    attempts:   Math.ceil(Math.random() * 3),           // 隨機嘗試次數（1–3 次）
     submitted_at: ts()
   };
-  animateGateway(payload, false);
+  animateGateway(payload, false); // false = 非 PII 攻擊，預期正常通過
 }
 
+/**
+ * 模擬含有 PII 的惡意封包（測試閘道封鎖機制）
+ * 從四種 PII 類型中隨機選一種附加至封包：
+ *   - 身分證字號（nid_bypass 嘗試）
+ *   - 公司電子郵件
+ *   - 手機號碼
+ *   - 夾帶在自由文字欄位中的市話號碼
+ */
 function simulatePIIAttack() {
   const types = [
-    {extra_field: 'A234567890', notes:'nid_bypass'},
-    {contact: 'agent@fhc.com.tw'},
-    {phone: '0912345678'},
-    {personal_data: 'call me at 0223456789'},
+    { extra_field: 'A234567890',              notes: 'nid_bypass' }, // 偽裝成一般欄位的身分證字號
+    { contact: 'agent@fhc.com.tw' },                                 // 電子郵件地址
+    { phone: '0912345678' },                                          // 手機號碼
+    { personal_data: 'call me at 0223456789' },                      // 夾帶在文字中的市話號碼
   ];
-  const ag = SAMPLE_AGENTS[0];
+  const ag = SAMPLE_AGENTS[0]; // 固定使用第一筆測試人員（EMP-0042 林小明）
   const payload = {
-    agent_id: ag.id, agent_name: ag.name,
-    module_id:'compliance_quiz_01', score:88,
-    duration_s:380, attempts:1,
-    ...types[Math.floor(Math.random()*types.length)]
+    agent_id:   ag.id,
+    agent_name: ag.name,
+    module_id:  'compliance_quiz_01',
+    score:      88,
+    duration_s: 380,
+    attempts:   1,
+    ...types[Math.floor(Math.random() * types.length)] // 隨機展開一種 PII 欄位
   };
-  animateGateway(payload, true);
+  animateGateway(payload, true); // true = PII 攻擊，預期被閘道封鎖
 }
 
+/**
+ * 執行閘道處理動畫：模擬攔截 → 掃描 → 封鎖或代碼化的視覺化流程
+ * 透過 setTimeout 分段延遲，呈現閘道各階段的狀態變化
+ * @param {Object}  payload - 原始請求封包
+ * @param {boolean} isPII   - 是否預期觸發 PII 封鎖
+ */
 function animateGateway(payload, isPII) {
-  const gwStatus = document.getElementById('gwStatus');
-  const gwProcess = document.getElementById('gwProcess');
-  const dirtyEl = document.getElementById('dirtyJson');
-  const cleanEl = document.getElementById('cleanJson');
+  const gwStatus  = document.getElementById('gwStatus');   // 閘道狀態文字
+  const gwProcess = document.getElementById('gwProcess');  // 閘道處理步驟提示
+  const dirtyEl   = document.getElementById('dirtyJson');  // 左側原始封包顯示區
+  const cleanEl   = document.getElementById('cleanJson');  // 右側乾淨封包顯示區
 
-  // Show dirty
-  dirtyEl.innerHTML = renderJSON(payload, true);
+  // ── 第 0ms：立即顯示原始封包，閘道進入掃描狀態 ──
+  dirtyEl.innerHTML = renderJSON(payload, true); // dirty=true：標記 PII 值為紅色
   cleanEl.innerHTML = '<span class="text-dim">Processing...</span>';
-  gwStatus.textContent = 'SCANNING...';
-  gwStatus.style.color = 'var(--yellow)';
+  gwStatus.textContent  = 'SCANNING...';
+  gwStatus.style.color  = 'var(--yellow)';
   gwProcess.textContent = '⚡ Intercepted';
 
-  setTimeout(()=>{
+  // ── 第 400ms：更新狀態為封鎖中或代碼化中 ──
+  setTimeout(() => {
     gwStatus.textContent = isPII ? 'BLOCKING!' : 'TOKENIZING';
     gwStatus.style.color = isPII ? 'var(--red)' : 'var(--cyan)';
     gwProcess.textContent = isPII ? '🚫 PII Detected' : '🔑 Generating UUID';
   }, 400);
 
-  setTimeout(()=>{
+  // ── 第 900ms：執行實際的 processRequest()，渲染最終結果 ──
+  setTimeout(() => {
     const res = processRequest(payload);
-    if(res.blocked){
-      cleanEl.innerHTML = `<span class="text-red">🚫 PAYLOAD BLOCKED\n\nReason: PII_DETECTED\nTypes: ${res.pii.map(p=>p.label).join(', ')}\n\nPayload quarantined.\nIncident logged to ApiTrafficLogs.</span>`;
-      gwStatus.textContent = 'BLOCKED';
-      gwStatus.style.color = 'var(--red)';
+
+    if (res.blocked) {
+      // 封鎖情境：右側顯示隔離說明，閘道狀態轉紅，回傳 HTTP 403
+      cleanEl.innerHTML = `<span class="text-red">🚫 PAYLOAD BLOCKED\n\nReason: PII_DETECTED\nTypes: ${res.pii.map(p => p.label).join(', ')}\n\nPayload quarantined.\nIncident logged to ApiTrafficLogs.</span>`;
+      gwStatus.textContent  = 'BLOCKED';
+      gwStatus.style.color  = 'var(--red)';
       gwProcess.textContent = '🚨 Threat logged';
-      addStreamLog('POST','/api/v1/submit_sprint',403,true);
+      addStreamLog('POST', '/api/v1/submit_sprint', 403, true); // 寫入日誌，標記含 PII
+
     } else {
-      cleanEl.innerHTML = renderJSON(res.cleanPayload, false);
-      gwStatus.textContent = 'CLEAN ✓';
-      gwStatus.style.color = 'var(--green)';
+      // 放行情境：右側顯示代碼化後的乾淨封包，更新最新 Token 顯示，回傳 HTTP 200
+      cleanEl.innerHTML = renderJSON(res.cleanPayload, false); // dirty=false：Token 值套用綠色樣式
+      gwStatus.textContent  = 'CLEAN ✓';
+      gwStatus.style.color  = 'var(--green)';
       gwProcess.textContent = '✅ Routed to DB';
+
+      // 在模擬器頁面的 Token 資訊區更新最新產生的 Token 與對應關係
       document.getElementById('lastToken').textContent = res.tokenId;
       document.getElementById('lastMapping').innerHTML =
-        `<span class="text-dim">${payload.agent_id} (${payload.agent_name}) → </span><span style="color:var(--cyan);">${res.tokenId}</span>`;
-      addStreamLog('POST','/api/v1/submit_sprint',200,false);
+        `<span class="text-dim">${payload.agent_id} (${payload.agent_name}) → </span>` +
+        `<span style="color:var(--cyan);">${res.tokenId}</span>`;
+
+      addStreamLog('POST', '/api/v1/submit_sprint', 200, false);
     }
-    setTimeout(()=>{ gwStatus.textContent='READY'; gwStatus.style.color='var(--green)'; gwProcess.textContent=''; },2000);
+
+    // ── 第 2900ms（+2000ms）：閘道狀態重置為待機 ──
+    setTimeout(() => {
+      gwStatus.textContent  = 'READY';
+      gwStatus.style.color  = 'var(--green)';
+      gwProcess.textContent = '';
+    }, 2000);
+
   }, 900);
 }
 
+/**
+ * 手動提交模擬器表單中的請求
+ * 從各輸入欄位讀取值組成封包，呼叫 processRequest() 並將結果渲染至結果面板
+ */
 function submitReq() {
+  // 從表單欄位讀取所有必填欄位
   const payload = {
-    agent_id: document.getElementById('s-aid').value,
+    agent_id:   document.getElementById('s-aid').value,
     agent_name: document.getElementById('s-name').value,
-    module_id: document.getElementById('s-module').value,
-    score: parseInt(document.getElementById('s-score').value),
+    module_id:  document.getElementById('s-module').value,
+    score:      parseInt(document.getElementById('s-score').value),
     duration_s: parseInt(document.getElementById('s-dur').value),
-    attempts: parseInt(document.getElementById('s-att').value),
+    attempts:   parseInt(document.getElementById('s-att').value),
   };
+
+  // 選填的額外欄位（用於手動輸入 PII 測試資料）
   const extra = document.getElementById('s-extra').value;
-  if(extra) payload.extra_field = extra;
+  if (extra) payload.extra_field = extra; // 僅在有值時才附加至封包
 
   const res = processRequest(payload);
-  const el = document.getElementById('simResult');
+  const el  = document.getElementById('simResult');
 
-  if(res.blocked){
-    el.innerHTML = `<span class="text-red">🚫 REQUEST BLOCKED — HTTP 403\n\nReason: PII_DETECTED\nPII Types: ${res.pii.map(p=>p.label).join(', ')}\nProcessing Time: ${res.latency}ms\n\nPayload has been quarantined.\nSecurity alert raised.\nIncident recorded in ApiTrafficLogs.</span>`;
-    addStreamLog('POST','/api/v1/submit_sprint',403,true);
+  if (res.blocked) {
+    // 封鎖情境：顯示 403 錯誤與 PII 類型清單
+    el.innerHTML = `<span class="text-red">🚫 REQUEST BLOCKED — HTTP 403\n\n` +
+      `Reason: PII_DETECTED\n` +
+      `PII Types: ${res.pii.map(p => p.label).join(', ')}\n` +
+      `Processing Time: ${res.latency}ms\n\n` +
+      `Payload has been quarantined.\nSecurity alert raised.\nIncident recorded in ApiTrafficLogs.</span>`;
+    addStreamLog('POST', '/api/v1/submit_sprint', 403, true);
+
   } else {
-    el.innerHTML = `<span class="text-green">✅ REQUEST PROCESSED — HTTP 200\n\n</span><span class="text-cyan">Generated Token:\n${res.tokenId}\n\n</span><span class="text-dim">Clean Payload → TelemetryDB:\n</span>${JSON.stringify(res.cleanPayload,null,2)}\n\n<span class="text-dim">Processing Time: ${res.latency}ms</span>`;
+    // 放行情境：顯示 200 成功回應、產生的 Token 與乾淨封包內容
+    el.innerHTML =
+      `<span class="text-green">✅ REQUEST PROCESSED — HTTP 200\n\n</span>` +
+      `<span class="text-cyan">Generated Token:\n${res.tokenId}\n\n</span>` +
+      `<span class="text-dim">Clean Payload → TelemetryDB:\n</span>` +
+      `${JSON.stringify(res.cleanPayload, null, 2)}\n\n` +
+      `<span class="text-dim">Processing Time: ${res.latency}ms</span>`;
+
+    // 更新模擬器右欄的 Token 對應資訊
     document.getElementById('lastToken').textContent = res.tokenId;
-    document.getElementById('lastMapping').innerHTML = `<span class="text-dim">${payload.agent_id} → </span><span style="color:var(--cyan);">${res.tokenId}</span>`;
-    addStreamLog('POST','/api/v1/submit_sprint',200,false);
+    document.getElementById('lastMapping').innerHTML =
+      `<span class="text-dim">${payload.agent_id} → </span>` +
+      `<span style="color:var(--cyan);">${res.tokenId}</span>`;
+
+    addStreamLog('POST', '/api/v1/submit_sprint', 200, false);
   }
 }
 
+/**
+ * 自動在 Extra Field 注入一組隨機身分證字號並送出請求
+ * 用於快速驗證 PII 封鎖機制，格式：A + 9 位隨機數字
+ */
 function injectPII() {
-  document.getElementById('s-extra').value = 'A' + String(Math.floor(100000000+Math.random()*900000000));
-  submitReq();
+  document.getElementById('s-extra').value = 'A' + String(Math.floor(100000000 + Math.random() * 900000000));
+  submitReq(); // 注入後立即送出，觸發封鎖流程
 }
 
+/**
+ * 清除模擬器結果面板，恢復為預設提示文字
+ */
 function clearResult() {
-  document.getElementById('simResult').innerHTML = '<span class="text-dim">Submit a request to see the gateway response...</span>';
+  document.getElementById('simResult').innerHTML =
+    '<span class="text-dim">Submit a request to see the gateway response...</span>';
 }
 
+// ── 自動模擬計時器（模組層級變數，避免多次啟動時重複建立） ──
 let autoTimer = null;
-function autoSimulate() {
-  if(autoTimer) clearInterval(autoTimer);
-  autoTimer = setInterval(()=>{
-    if(Math.random()<0.25) simulatePIIAttack();
-    else simulateTraffic();
-  },1800);
-  simulateTraffic();
-}
-function stopAuto() { if(autoTimer){clearInterval(autoTimer);autoTimer=null;} }
 
-// ══════════════ TABS ══════════════
+/**
+ * 啟動自動模擬：每 1800ms 觸發一次隨機請求
+ * 25% 機率為 PII 攻擊，75% 機率為正常請求
+ * 若已有計時器在執行，先清除再重新啟動（防止重複觸發）
+ */
+function autoSimulate() {
+  if (autoTimer) clearInterval(autoTimer); // 防止重複啟動造成加速問題
+  autoTimer = setInterval(() => {
+    if (Math.random() < 0.25) simulatePIIAttack(); // 25% 機率觸發 PII 攻擊
+    else simulateTraffic();                         // 75% 機率觸發正常流量
+  }, 1800);
+  simulateTraffic(); // 啟動後立即執行一次，避免使用者等待第一個 1800ms
+}
+
+/**
+ * 停止自動模擬，清除計時器並重置為 null
+ */
+function stopAuto() {
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null; // 重置為 null，讓 autoSimulate() 下次可正確判斷狀態
+  }
+}
+// ══════════════ 頁籤切換 ══════════════
+
+/**
+ * 切換頁面顯示與頁籤高亮狀態
+ * 透過 CSS class 'active' 控制頁面可見性，同步更新頁籤的選中樣式
+ * @param {string} name - 目標頁面名稱（對應 id="page-{name}" 的元素）
+ * 注意：直接使用 event.target 依賴呼叫端的 onclick 事件物件，
+ *       需確保此函式始終由使用者點擊事件直接觸發
+ */
 function showTab(name) {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
+  // 移除所有頁面的 active class（隱藏所有頁面）
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  // 移除所有頁籤的 active class（清除所有選中樣式）
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  // 顯示目標頁面
+  document.getElementById('page-' + name).classList.add('active');
+  // 高亮被點擊的頁籤
   event.target.classList.add('active');
 }
 
-// ══════════════ CLOCK ══════════════
-function updateClock(){
-  document.getElementById('clock').textContent = new Date().toTimeString().substring(0,8);
-}
-setInterval(updateClock,1000); updateClock();
+// ══════════════ 即時時鐘 ══════════════
 
-// ══════════════ INIT ══════════════
-// Seed some initial data
+/**
+ * 更新頁面頂部導覽列的即時時鐘顯示
+ * 從 Date 物件的 toTimeString() 截取前 8 個字元，格式為 HH:MM:SS
+ */
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toTimeString().substring(0, 8);
+}
+
+// 每秒更新一次時鐘，並於頁面載入時立即執行一次（避免首秒空白）
+setInterval(updateClock, 1000);
+updateClock();
+
+// ══════════════ 初始化 ══════════════
+
+/**
+ * 頁面載入時注入三筆預設測試資料，讓各資料庫表格與儀表板指標有初始內容可展示
+ * 每筆資料模擬一位真實客服人員已完成特定訓練模組的測驗紀錄：
+ *   - EMP-0042 林小明：法規遵循測驗，高分通過（92 分，1 次作答）
+ *   - EMP-0187 張美華：定期壽險基礎，中等分數（78 分，2 次作答）
+ *   - EMP-0093 王大偉：投資型保單法規，低分（65 分，3 次作答，耗時最長）
+ * 三筆資料均不含 PII 攻擊，預期全數通過閘道並寫入 Vault 與 TelemetryDB
+ */
 [
-  {id:'EMP-0042',name:'林小明',mod:'compliance_quiz_01',score:92,dur:380,att:1},
-  {id:'EMP-0187',name:'張美華',mod:'term_life_basics',score:78,dur:420,att:2},
-  {id:'EMP-0093',name:'王大偉',mod:'investment_linked_regulation',score:65,dur:510,att:3},
-].forEach(d=>{
-  processRequest({agent_id:d.id,agent_name:d.name,module_id:d.mod,score:d.score,duration_s:d.dur,attempts:d.att});
+  { id: 'EMP-0042', name: '林小明', mod: 'compliance_quiz_01',          score: 92, dur: 380, att: 1 },
+  { id: 'EMP-0187', name: '張美華', mod: 'term_life_basics',             score: 78, dur: 420, att: 2 },
+  { id: 'EMP-0093', name: '王大偉', mod: 'investment_linked_regulation', score: 65, dur: 510, att: 3 },
+].forEach(d => {
+  // 逐筆傳入 processRequest()，觸發完整的攔截 → 代碼化 → 寫入資料庫流程
+  processRequest({
+    agent_id:   d.id,
+    agent_name: d.name,
+    module_id:  d.mod,
+    score:      d.score,
+    duration_s: d.dur,
+    attempts:   d.att
+  });
 });
 </script>
 </body>
